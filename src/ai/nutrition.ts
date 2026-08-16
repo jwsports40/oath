@@ -67,6 +67,49 @@ export const NUTRITION_SCHEMA: Record<string, unknown> = {
   additionalProperties: false,
 };
 
+// --- Claude Code bridge (private single-user mode) ---------------------------
+// When the app is served from the owner's PC, a local bridge (server/scribe-proxy.mjs,
+// port 4174) runs SCRIBE as a headless Claude Code subagent using the machine's
+// existing Claude login — no API key needed. The bridge is only reachable from
+// http pages (an https page may not call an http endpoint), so defaultBridgeUrl
+// returns null on https and the direct API-key path is used instead.
+export const BRIDGE_PORT = 4174;
+
+export function defaultBridgeUrl(): string | null {
+  if (typeof window === 'undefined') return null;
+  if (window.location.protocol !== 'http:') return null;
+  return `http://${window.location.hostname}:${BRIDGE_PORT}`;
+}
+
+export async function bridgeAvailable(baseUrl: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(1500) });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function estimateViaBridge(
+  req: NutritionRequest, baseUrl: string,
+): Promise<NutritionResponse> {
+  const res = await fetch(`${baseUrl}/scribe`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(req),
+  });
+  if (res.status === 422) {
+    // The subagent refused or produced unusable output — terminal for this item.
+    throw new EstimateFailedError(await res.text());
+  }
+  if (!res.ok) throw new Error(`bridge responded ${res.status}`); // transient
+  const data = (await res.json()) as NutritionResponse;
+  if (!Array.isArray(data.entries) || !Array.isArray(data.needs_clarification)) {
+    throw new EstimateFailedError('bridge returned malformed response');
+  }
+  return data;
+}
+
 export async function estimate(req: NutritionRequest, apiKey: string): Promise<NutritionResponse> {
   const client = new Anthropic({ apiKey, dangerouslyAllowBrowser: true });
   const response = await client.messages.create({

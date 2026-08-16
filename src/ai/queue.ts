@@ -6,7 +6,8 @@ import { db, kvGet, kvSet } from '../data/db';
 import { DEFAULT_SETTINGS } from '../data/seed';
 import { registerAiDrain, type AiQueueItem, type FoodCorrection } from '../app/store';
 import {
-  EstimateFailedError, estimate as scribeEstimate, normalizeFood,
+  EstimateFailedError, bridgeAvailable, defaultBridgeUrl, estimate as scribeEstimate,
+  estimateViaBridge, normalizeFood,
   type NutritionRequest, type NutritionResponse,
 } from './nutrition';
 import type { FoodEntry, Meal, UserSettings } from '../core/types';
@@ -45,6 +46,10 @@ export async function drain(estimator: Estimator = scribeEstimate): Promise<void
   if (draining) return;
   draining = true;
   try {
+    // Probe the local Claude Code bridge once per drain; when reachable it takes
+    // priority over the direct API-key path (private single-user mode, no key needed).
+    const bridgeUrl = defaultBridgeUrl();
+    const useBridge = bridgeUrl !== null && (await bridgeAvailable(bridgeUrl));
     for (;;) {
       const queue = await kvGet<AiQueueItem[]>(QUEUE_KEY, []);
       const item = queue[0];
@@ -65,7 +70,9 @@ export async function drain(estimator: Estimator = scribeEstimate): Promise<void
       const settings = await kvGet<UserSettings>('settings', DEFAULT_SETTINGS);
       const apiKey = settings.anthropicKey;
       const online = typeof navigator === 'undefined' || navigator.onLine !== false;
-      if (!online || apiKey === undefined || apiKey === '') break; // leave queued
+      if (!online) break; // leave queued
+      const hasKey = apiKey !== undefined && apiKey !== '';
+      if (!useBridge && !hasKey) break; // no way to estimate — leave queued
       const corrections = await kvGet<FoodCorrection[]>(CORRECTIONS_KEY, []);
       const request: NutritionRequest = {
         utterance: item.utterance,
@@ -74,7 +81,9 @@ export async function drain(estimator: Estimator = scribeEstimate): Promise<void
         knownCorrections: corrections.slice(-20),
       };
       try {
-        const res = await estimator(request, apiKey);
+        const res = useBridge && bridgeUrl !== null
+          ? await estimateViaBridge(request, bridgeUrl)
+          : await estimator(request, apiKey as string);
         await applyResult(item.mealId, res);
         await kvSet(CACHE_KEY, { ...cache, [cacheKey]: res });
         await dequeue(item.mealId);

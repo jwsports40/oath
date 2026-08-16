@@ -8,7 +8,9 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "test": "vitest",
-    "icons": "node scripts/gen-icons.mjs"
+    "icons": "node scripts/gen-icons.mjs",
+    "app": "node scripts/serve.mjs",
+    "scribe-bridge": "node server/scribe-proxy.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.117.1",
