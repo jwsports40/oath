@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#080B08"/>
+  <!-- rank-diamond motif: rotated-square outline with a smaller filled diamond inside -->
+  <g transform="rotate(45 256 256)">
+    <rect x="126" y="126" width="260" height="260" fill="none" stroke="#46FF7D" stroke-width="18"/>
+    <rect x="206" y="206" width="100" height="100" fill="#46FF7D"/>
+  </g>
+</svg>

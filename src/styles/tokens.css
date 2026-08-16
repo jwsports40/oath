@@ -1,0 +1,37 @@
+/* Oath design tokens — spec §2 "the Ledger" (exact values, do not drift) */
+:root {
+  /* background */
+  --bg0: #080B08;
+  --bg1: #060907;
+  --bg-deep: #050705;
+
+  /* surfaces */
+  --panel: #0A100B;
+  --border: #1C2E22;
+  --hairline: #14211A;
+
+  /* THE accent */
+  --neon: #46FF7D;
+
+  /* text greens */
+  --text-hi: #D6EFDB;
+  --text-mid: #8FAF97;
+  --text-low: #5E7565;
+  --text-faint: #52685A;
+
+  /* rare accents */
+  --amber: #E8B54D;
+  --ember: #E25B4A;
+  --on-neon: #04140A;
+
+  /* campaign calendar heat */
+  --heat-poor: #5C2E22;
+  --heat-mid: #8A4A2E;
+  --heat-good: #2E7A47;
+
+  /* type */
+  --font-body: 'VT323', monospace;
+  --font-label: 'Press Start 2P', monospace;
+  --font-title: 'Jacquard 12', system-ui;
+  --font-rank: 'Cinzel', serif;
+}

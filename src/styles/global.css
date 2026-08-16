@@ -1,0 +1,74 @@
+@import './tokens.css';
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+html {
+  background: var(--bg-deep);
+}
+
+body {
+  background: linear-gradient(180deg, var(--bg0), var(--bg1));
+  background-attachment: fixed;
+  color: var(--text-hi);
+  font-family: var(--font-body);
+  font-size: 20px;
+  line-height: 1.25;
+  -webkit-font-smoothing: none;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+#root {
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  position: relative;
+}
+
+/* page frame: inset 1px border; 4 corner ticks arrive with the PageFrame
+   component (Task 11) — for now just the border */
+.page {
+  position: relative;
+  min-height: calc(100dvh - 56px);
+  margin: 8px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  overflow-y: auto;
+  padding-bottom: 72px;
+}
+
+/* hide scrollbars everywhere — the ledger has no chrome */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}
+
+/* app chrome is not selectable */
+.app-shell,
+.tab-bar {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+button {
+  font-family: inherit;
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+}
