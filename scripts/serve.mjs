@@ -3,6 +3,13 @@
 // (GitHub Pages) can reach it from anywhere. The tunnel URL is printed below —
 // paste it into the app: Hero → Settings → SCRIBE → BRIDGE URL.
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+
+// Freshly-installed cloudflared may not be on PATH in already-open shells.
+const CLOUDFLARED = [
+  'C:\\Program Files (x86)\\cloudflared\\cloudflared.exe',
+  'C:\\Program Files\\cloudflared\\cloudflared.exe',
+].find(existsSync) ?? 'cloudflared';
 
 function run(name, cmd, args, { onData, optional = false } = {}) {
   const child = spawn(cmd, args, { shell: true, windowsHide: true });
@@ -26,7 +33,7 @@ children.push(run('scribe', 'node', ['server/scribe-proxy.mjs']));
 
 // Quick tunnel (no Cloudflare account needed). URL changes on each restart.
 let announced = false;
-children.push(run('tunnel', 'cloudflared', ['tunnel', '--url', 'http://localhost:4174'], {
+children.push(run('tunnel', `"${CLOUDFLARED}"`, ['tunnel', '--url', 'http://localhost:4174'], {
   optional: true,
   onData: (text) => {
     const m = text.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
