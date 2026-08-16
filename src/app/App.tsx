@@ -21,6 +21,8 @@ import {
   RetroChart,
   type DiamondState,
 } from '../ui/atoms';
+import Knight from '../ui/knight/Knight';
+import { ageLayersForLevel } from '../ui/knight/ages';
 import type { Difficulty, Rank } from '../core/types';
 import { addDays, dayKey } from '../core/dates';
 
@@ -52,6 +54,8 @@ function GalleryScreen() {
     y: 200 + i * 5 + (i % 3) * 8,
     pr: i === 7,
   }));
+  const knightLevels = [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100];
+  const vigorBands = ['RUINS', 'EMBER CAMP', 'CAMP', 'STRONGHOLD', 'BEACON'];
   const longChartPoints = Array.from({ length: 30 }, (_, i) => ({
     x: `pt${i}`,
     y: 100 + Math.round(30 * Math.sin(i / 3)) + i,
@@ -126,6 +130,28 @@ function GalleryScreen() {
 
         <SectionLabel>RetroChart (empty)</SectionLabel>
         <RetroChart points={[]} />
+
+        <SectionLabel>Knight — 11 armor ages (bust)</SectionLabel>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {knightLevels.map((lv) => (
+            <div key={lv} style={{ textAlign: 'center' }}>
+              <Knight level={lv} size={72} />
+              <div style={{ fontSize: 13, color: 'var(--text-faint)' }}>
+                LV {lv} {ageLayersForLevel(lv).name}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <SectionLabel>Knight — full pose × vigor bands</SectionLabel>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          {vigorBands.map((band) => (
+            <div key={band} style={{ textAlign: 'center' }}>
+              <Knight level={40} pose="full" vigorBand={band} size={96} />
+              <div style={{ fontSize: 13, color: 'var(--text-faint)' }}>{band}</div>
+            </div>
+          ))}
+        </div>
       </PageFrame>
       <CrtOverlay />
     </div>
