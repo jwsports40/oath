@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { useOath } from '../../app/store';
+import { notificationPermission, requestNotificationPermission } from '../../app/notify';
 import { db } from '../../data/db';
 import { DIFFICULTY } from '../../core/types';
 import type { UserSettings } from '../../core/types';
@@ -71,6 +72,48 @@ function Chips<T extends string>({ options, value, onChange }: {
         </button>
       ))}
     </div>
+  );
+}
+
+/**
+ * System notification permission button (Task 20). Web notifications are
+ * best-effort while the app is open — without permission they fall back to
+ * in-app toasts, so this is an upgrade, never a gate.
+ */
+function PermissionButton() {
+  const [perm, setPerm] = useState(notificationPermission());
+  const refresh = useOath((s) => s.refresh);
+  if (perm === 'unsupported') {
+    return <span style={{ ...bodyText, color: 'var(--text-faint)' }}>UNSUPPORTED — IN-APP ONLY</span>;
+  }
+  if (perm === 'granted') {
+    return <span style={{ ...bodyText, color: 'var(--neon)' }}>GRANTED</span>;
+  }
+  if (perm === 'denied') {
+    return <span style={{ ...bodyText, color: 'var(--ember)' }}>DENIED — IN-APP ONLY</span>;
+  }
+  return (
+    <button
+      onClick={() => {
+        void requestNotificationPermission().then((p) => {
+          setPerm(p);
+          void refresh(); // re-arms timers so they deliver via the system
+        });
+      }}
+      style={{
+        fontFamily: 'var(--font-label)',
+        fontSize: 7,
+        letterSpacing: '0.15em',
+        padding: '5px 10px',
+        cursor: 'pointer',
+        background: 'none',
+        border: '1px solid var(--neon)',
+        color: 'var(--neon)',
+        boxShadow: '0 0 6px rgba(70,255,125,0.35)',
+      }}
+    >
+      REQUEST
+    </button>
   );
 }
 
@@ -175,6 +218,9 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
           </div>
 
           <SectionLabel>NOTIFICATIONS</SectionLabel>
+          <Row label="SYSTEM PERMISSION">
+            <PermissionButton />
+          </Row>
           <Row label="QUEST REMINDERS">
             <Toggle value={settings.notifications.questReminders} onChange={(v) => setNotif({ questReminders: v })} />
           </Row>

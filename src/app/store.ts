@@ -19,6 +19,7 @@ import { dayScore, dayRank, toScoreable } from '../game/scoring';
 import { armorAgeForLevel, levelForXp, titleForLevel } from '../game/xp';
 import { perQuestStreak } from '../game/streaks';
 import { INITIAL_VIGOR, vigorBand as bandOf } from '../game/vigor';
+import { scheduleNotifications } from './notify';
 import type { Tab } from './tabs';
 import type {
   Achievement, Category, Character, DailyScore, Exercise, ExerciseSet, FoodEntry, Meal,
@@ -519,6 +520,11 @@ export const useOath = create<OathStore>()((set, get) => {
         goals, meals, macros, hydrationOz, dailyScores,
         programs, exercises, sessions, prs, achievements, unlocks, settings, aiQueueSize,
       });
+
+      // Re-arm today's best-effort notification timers (Task 20). refresh() runs
+      // after init, midnight rollover, and every mutation, so plans always track
+      // current quest/streak state. No-op outside the browser.
+      scheduleNotifications(get());
     },
   };
 });
