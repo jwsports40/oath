@@ -231,6 +231,12 @@ export const useOath = create<OathStore>()((set, get) => {
     async init(): Promise<void> {
       if (initPromise !== null) return initPromise;
       set({ initError: null });
+      // Ask the browser to mark our storage durable so the OS won't evict the
+      // ledger under storage pressure. Best-effort — denial is fine.
+      if (typeof navigator !== 'undefined' && navigator.storage !== undefined
+        && typeof navigator.storage.persist === 'function') {
+        navigator.storage.persist().catch(() => undefined);
+      }
       initPromise = (async () => {
         try {
           await seedIfEmpty();
