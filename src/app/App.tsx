@@ -200,7 +200,9 @@ export default function App() {
   const setTab = useOath((s) => s.setTab);
   const crt = useOath((s) => s.settings.crt);
   const isGallery =
-    typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('gallery');
+    import.meta.env.DEV &&
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).has('gallery');
 
   useEffect(() => {
     if (!isGallery) void useOath.getState().init();
