@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect } from 'react';
 import { TABS, type Tab } from './tabs';
+import { useOath } from './store';
 import TodayScreen from '../ui/today/TodayScreen';
 import QuestsScreen from '../ui/quests/QuestsScreen';
 import TrainScreen from '../ui/train/TrainScreen';
@@ -15,8 +16,35 @@ const SCREENS: Record<Tab, () => JSX.Element> = {
 };
 
 export default function App() {
-  // Tab state moves into the zustand store in Task 10; local for now.
-  const [tab, setTab] = useState<Tab>('today');
+  const ready = useOath((s) => s.ready);
+  const tab = useOath((s) => s.tab);
+  const setTab = useOath((s) => s.setTab);
+  const crt = useOath((s) => s.settings.crt);
+
+  useEffect(() => {
+    void useOath.getState().init();
+  }, []);
+
+  if (!ready) {
+    return (
+      <div
+        className="app-shell"
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontFamily: 'var(--font-label)',
+          fontSize: 8,
+          letterSpacing: '0.3em',
+          color: 'var(--text-low)',
+        }}
+      >
+        LOADING
+      </div>
+    );
+  }
+
   const Screen = SCREENS[tab];
 
   return (
@@ -24,6 +52,19 @@ export default function App() {
       <div style={{ paddingBottom: 56 }}>
         <Screen />
       </div>
+      {crt && (
+        // Placeholder until Task 11's CrtOverlay atom.
+        <div
+          aria-hidden
+          style={{
+            position: 'fixed',
+            inset: 0,
+            pointerEvents: 'none',
+            zIndex: 200,
+            background: 'repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 1px, transparent 1px 2px)',
+          }}
+        />
+      )}
       <nav
         className="tab-bar"
         style={{

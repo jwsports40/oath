@@ -9,12 +9,12 @@ import type {
 
 const BUILTIN_CATEGORIES = ['BODY', 'MIND', 'DUTY', 'CRAFT', 'RITES'] as const;
 
-const DEFAULT_NUTRITION_GOAL: NutritionGoal = {
+export const DEFAULT_NUTRITION_GOAL: NutritionGoal = {
   calories: 2500, protein: 220, carbs: 250, fat: 80, waterOz: 128,
   mealPlanRules: { proteinGoal: true, calorieBandPct: 10, minMeals: 2 },
 };
 
-const DEFAULT_SETTINGS: UserSettings = {
+export const DEFAULT_SETTINGS: UserSettings = {
   units: 'oz', sound: true, haptics: true, crt: true, fxIntensity: 'full',
   resetHour: 0,
   quietHours: [22, 8],
@@ -24,9 +24,9 @@ const DEFAULT_SETTINGS: UserSettings = {
   },
 };
 
-const INITIAL_CHARACTER: Character = { level: 1, xpTotal: 0, str: 10, vit: 10, wil: 10 };
+export const INITIAL_CHARACTER: Character = { level: 1, xpTotal: 0, str: 10, vit: 10, wil: 10 };
 
-const INITIAL_STREAKS: StreakState = {
+export const INITIAL_STREAKS: StreakState = {
   overall: 0, overallBest: 0, perfect: 0, perfectBest: 0,
   sRank: 0, sRankBest: 0, embers: 0, cPlusRun: 0,
 };
