@@ -1,11 +1,28 @@
-import { useEffect } from 'react';
-import { TABS, type Tab } from './tabs';
+import { useEffect, useState } from 'react';
+import { TABS, type Tab, type IconName } from './tabs';
 import { useOath } from './store';
 import TodayScreen from '../ui/today/TodayScreen';
 import QuestsScreen from '../ui/quests/QuestsScreen';
 import TrainScreen from '../ui/train/TrainScreen';
 import FuelScreen from '../ui/fuel/FuelScreen';
 import HeroScreen from '../ui/hero/HeroScreen';
+import {
+  PageFrame,
+  Panel,
+  DiamondCheckbox,
+  SegmentedBar,
+  QuantityBar,
+  RankDiamond,
+  DifficultyPips,
+  SectionLabel,
+  Icon,
+  CrtOverlay,
+  WeekStrip,
+  RetroChart,
+  type DiamondState,
+} from '../ui/atoms';
+import type { Difficulty, Rank } from '../core/types';
+import { addDays, dayKey } from '../core/dates';
 
 const SCREENS: Record<Tab, () => JSX.Element> = {
   today: TodayScreen,
@@ -15,15 +32,119 @@ const SCREENS: Record<Tab, () => JSX.Element> = {
   hero: HeroScreen,
 };
 
+/** Visual-QA gallery of every atom in every state. Kept as a permanent `?gallery` route. */
+function GalleryScreen() {
+  const [toggled, setToggled] = useState(false);
+  const today = dayKey(new Date());
+  const ranks: Rank[] = ['F', 'D', 'C', 'B', 'A', 'S', 'S+'];
+  const difficulties: Difficulty[] = ['trivial', 'easy', 'medium', 'hard', 'elite'];
+  const diamondStates: DiamondState[] = ['todo', 'done', 'optional', 'main', 'failed'];
+  const iconNames: IconName[] = [
+    'diamond', 'list', 'dumbbell', 'flask', 'helm', 'plus', 'gear', 'flame', 'skull', 'drop', 'check',
+  ];
+  const weekRanks: (Rank | null)[] = ['A', 'S', 'C', null, null, null, null];
+  const week = Array.from({ length: 7 }, (_, i) => {
+    const date = addDays(today, i - 3);
+    return { date, rank: weekRanks[i] ?? null, isToday: date === today };
+  });
+  const chartPoints = Array.from({ length: 12 }, (_, i) => ({
+    x: `2026-0${(i % 9) + 1}-01`,
+    y: 200 + i * 5 + (i % 3) * 8,
+    pr: i === 7,
+  }));
+  const longChartPoints = Array.from({ length: 30 }, (_, i) => ({
+    x: `pt${i}`,
+    y: 100 + Math.round(30 * Math.sin(i / 3)) + i,
+    pr: i === 22,
+  }));
+
+  return (
+    <div className="app-shell">
+      <PageFrame title="Gallery" day="XLII">
+        <SectionLabel>Panel / Panel amber</SectionLabel>
+        <Panel>Standard ledger panel with neon corner ticks.</Panel>
+        <div style={{ height: 8 }} />
+        <Panel amber>Main-quest panel with amber corner ticks.</Panel>
+
+        <SectionLabel>DiamondCheckbox — all states</SectionLabel>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          {diamondStates.map((s) => (
+            <div key={s} style={{ textAlign: 'center' }}>
+              <DiamondCheckbox state={s} />
+              <div style={{ fontSize: 14, color: 'var(--text-faint)' }}>{s}</div>
+            </div>
+          ))}
+          <div style={{ textAlign: 'center' }}>
+            <DiamondCheckbox state={toggled ? 'done' : 'todo'} onToggle={() => setToggled((v) => !v)} />
+            <div style={{ fontSize: 14, color: 'var(--text-faint)' }}>tap me</div>
+          </div>
+        </div>
+
+        <SectionLabel>SegmentedBar</SectionLabel>
+        <SegmentedBar value={7} max={10} />
+        <div style={{ height: 8 }} />
+        <SegmentedBar value={13} max={20} segments={20} color="var(--amber)" />
+
+        <SectionLabel>QuantityBar</SectionLabel>
+        <QuantityBar value={92} max={128} label="oz" />
+
+        <SectionLabel>RankDiamond</SectionLabel>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {ranks.map((r) => (
+            <RankDiamond key={r} rank={r} />
+          ))}
+        </div>
+
+        <SectionLabel>DifficultyPips</SectionLabel>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          {difficulties.map((d) => (
+            <div key={d} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <DifficultyPips difficulty={d} />
+              <span style={{ fontSize: 16, color: 'var(--text-low)' }}>{d.toUpperCase()}</span>
+            </div>
+          ))}
+        </div>
+
+        <SectionLabel>Icons</SectionLabel>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', color: 'var(--text-mid)' }}>
+          {iconNames.map((n) => (
+            <div key={n} style={{ textAlign: 'center' }}>
+              <Icon name={n} />
+              <div style={{ fontSize: 13, color: 'var(--text-faint)' }}>{n}</div>
+            </div>
+          ))}
+        </div>
+
+        <SectionLabel>WeekStrip</SectionLabel>
+        <WeekStrip days={week} />
+
+        <SectionLabel>RetroChart (12 pts, 1 PR)</SectionLabel>
+        <RetroChart points={chartPoints} yLabel="E1RM" />
+
+        <SectionLabel>RetroChart (30 pts, scrolls)</SectionLabel>
+        <RetroChart points={longChartPoints} marks={[{ y: 120, label: 'GOAL' }]} />
+
+        <SectionLabel>RetroChart (empty)</SectionLabel>
+        <RetroChart points={[]} />
+      </PageFrame>
+      <CrtOverlay />
+    </div>
+  );
+}
+
 export default function App() {
   const ready = useOath((s) => s.ready);
   const tab = useOath((s) => s.tab);
   const setTab = useOath((s) => s.setTab);
   const crt = useOath((s) => s.settings.crt);
+  const isGallery =
+    typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('gallery');
 
   useEffect(() => {
-    void useOath.getState().init();
-  }, []);
+    if (!isGallery) void useOath.getState().init();
+  }, [isGallery]);
+
+  if (isGallery) return <GalleryScreen />;
 
   if (!ready) {
     return (
@@ -52,19 +173,7 @@ export default function App() {
       <div style={{ paddingBottom: 56 }}>
         <Screen />
       </div>
-      {crt && (
-        // Placeholder until Task 11's CrtOverlay atom.
-        <div
-          aria-hidden
-          style={{
-            position: 'fixed',
-            inset: 0,
-            pointerEvents: 'none',
-            zIndex: 200,
-            background: 'repeating-linear-gradient(0deg, rgba(0,0,0,.18) 0 1px, transparent 1px 2px)',
-          }}
-        />
-      )}
+      {crt && <CrtOverlay />}
       <nav
         className="tab-bar"
         style={{
