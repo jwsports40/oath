@@ -320,6 +320,18 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
               onBlur={(e) => { void updateSettings({ anthropicKey: e.currentTarget.value }); }}
             />
           </Row>
+          <Row label="BRIDGE URL">
+            <input
+              type="text"
+              style={{ ...inputStyle, width: 160 }}
+              defaultValue={settings.bridgeUrl ?? ''}
+              placeholder="https://…"
+              onBlur={(e) => { void updateSettings({ bridgeUrl: e.currentTarget.value }); }}
+            />
+          </Row>
+          <div style={{ ...bodyText, color: 'var(--text-faint)' }}>
+            BRIDGE: SCRIBE VIA YOUR PC&apos;S CLAUDE — LEAVE BLANK AT HOME, SET A TUNNEL URL WHEN AWAY
+          </div>
 
           <SectionLabel>DANGER</SectionLabel>
           <div style={{ display: 'flex', gap: 8 }}>

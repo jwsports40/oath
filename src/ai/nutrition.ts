@@ -81,6 +81,17 @@ export function defaultBridgeUrl(): string | null {
   return `http://${window.location.hostname}:${BRIDGE_PORT}`;
 }
 
+/**
+ * The bridge endpoint to try: an explicit user-configured URL (Settings →
+ * SCRIBE bridge URL, e.g. an https tunnel to the home PC) wins; otherwise the
+ * same-host default on http pages, or null when there is nothing to try.
+ */
+export function resolveBridgeUrl(configured: string | undefined): string | null {
+  const explicit = configured?.trim();
+  if (explicit !== undefined && explicit !== '') return explicit.replace(/\/+$/, '');
+  return defaultBridgeUrl();
+}
+
 export async function bridgeAvailable(baseUrl: string): Promise<boolean> {
   try {
     const res = await fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(1500) });

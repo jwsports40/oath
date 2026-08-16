@@ -6,7 +6,7 @@ import { db, kvGet, kvSet } from '../data/db';
 import { DEFAULT_SETTINGS } from '../data/seed';
 import { registerAiDrain, type AiQueueItem, type FoodCorrection } from '../app/store';
 import {
-  EstimateFailedError, bridgeAvailable, defaultBridgeUrl, estimate as scribeEstimate,
+  EstimateFailedError, bridgeAvailable, estimate as scribeEstimate, resolveBridgeUrl,
   estimateViaBridge, normalizeFood,
   type NutritionRequest, type NutritionResponse,
 } from './nutrition';
@@ -46,9 +46,11 @@ export async function drain(estimator: Estimator = scribeEstimate): Promise<void
   if (draining) return;
   draining = true;
   try {
-    // Probe the local Claude Code bridge once per drain; when reachable it takes
-    // priority over the direct API-key path (private single-user mode, no key needed).
-    const bridgeUrl = defaultBridgeUrl();
+    // Probe the Claude Code bridge once per drain; when reachable it takes
+    // priority over the direct API-key path (private single-user mode, no key
+    // needed). A user-configured URL (e.g. an https tunnel) beats the default.
+    const drainSettings = await kvGet<UserSettings>('settings', DEFAULT_SETTINGS);
+    const bridgeUrl = resolveBridgeUrl(drainSettings.bridgeUrl);
     const useBridge = bridgeUrl !== null && (await bridgeAvailable(bridgeUrl));
     for (;;) {
       const queue = await kvGet<AiQueueItem[]>(QUEUE_KEY, []);

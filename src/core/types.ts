@@ -58,6 +58,7 @@ export interface UserSettings {
   quietHours:[number,number];                      // [22,8]
   notifications:{questReminders:boolean; eveningSweep:boolean; threshold:boolean; streakGuard:boolean; workout:boolean; sweepTime:string};
   anthropicKey?:string;
+  bridgeUrl?:string;                               // SCRIBE bridge override (e.g. https tunnel to home PC)
 }
 export interface WorldState { vigor:number; }      // bands derived
 export const VIGOR_BANDS:[number,string][]= [[90,'BEACON'],[75,'STRONGHOLD'],[60,'CAMP'],[40,'EMBER CAMP'],[0,'RUINS']];
