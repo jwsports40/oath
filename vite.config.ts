@@ -3,6 +3,8 @@ import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
+  // '/' locally; CI sets OATH_BASE=/oath/ for GitHub Pages project hosting.
+  base: process.env.OATH_BASE ?? '/',
   plugins: [
     react(),
     VitePWA({
