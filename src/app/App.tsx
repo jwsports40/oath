@@ -196,6 +196,7 @@ function GalleryScreen() {
 
 export default function App() {
   const ready = useOath((s) => s.ready);
+  const initError = useOath((s) => s.initError);
   const tab = useOath((s) => s.tab);
   const setTab = useOath((s) => s.setTab);
   const crt = useOath((s) => s.settings.crt);
@@ -209,6 +210,46 @@ export default function App() {
   }, [isGallery]);
 
   if (isGallery) return <GalleryScreen />;
+
+  if (!ready && initError !== null) {
+    return (
+      <div
+        className="app-shell"
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 16,
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 24,
+          textAlign: 'center',
+        }}
+      >
+        <div style={{ fontFamily: 'var(--font-label)', fontSize: 9, letterSpacing: '0.3em', color: 'var(--ember)' }}>
+          THE LEDGER FAILED TO OPEN
+        </div>
+        <div style={{ fontFamily: 'var(--font-body)', fontSize: 18, color: 'var(--text-mid)', maxWidth: 320 }}>
+          {initError}
+        </div>
+        <button
+          onClick={() => void useOath.getState().init()}
+          style={{
+            fontFamily: 'var(--font-label)',
+            fontSize: 8,
+            letterSpacing: '0.2em',
+            color: 'var(--neon)',
+            background: 'var(--panel)',
+            border: '1px solid var(--neon)',
+            padding: '12px 24px',
+            cursor: 'pointer',
+          }}
+        >
+          RETRY
+        </button>
+      </div>
+    );
+  }
 
   if (!ready) {
     return (

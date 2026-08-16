@@ -35,7 +35,7 @@ export type EffectEvent =
   | { kind: 'siegeKill'; name: string };
 
 export interface OathStore {
-  ready: boolean; today: string; tab: Tab;
+  ready: boolean; initError: string | null; today: string; tab: Tab;
   instances: QuestInstance[];                 // today's, sorted: main first, required, optional
   templates: QuestTemplate[]; categories: Category[];
   character: Character & { title: string; armorAge: [number, string, string]; into: number; next: number };
@@ -195,6 +195,7 @@ export const useOath = create<OathStore>()((set, get) => {
 
   return {
     ready: false,
+    initError: null,
     today: dayKey(new Date()),
     tab: 'today',
     instances: [],
@@ -228,18 +229,25 @@ export const useOath = create<OathStore>()((set, get) => {
 
     async init(): Promise<void> {
       if (initPromise !== null) return initPromise;
+      set({ initError: null });
       initPromise = (async () => {
-        await seedIfEmpty();
-        const today = dayKey(new Date());
-        set({ today });
-        const { sealedDays } = await ensureDay(today);
-        await ensureSiege(today);
-        const latest = sealedDays[sealedDays.length - 1];
-        if (latest !== undefined) await pushDaySeal(latest);
-        await drainAi();
-        await get().refresh();
-        set({ ready: true });
-        wireRollover();
+        try {
+          await seedIfEmpty();
+          const today = dayKey(new Date());
+          set({ today });
+          const { sealedDays } = await ensureDay(today);
+          await ensureSiege(today);
+          const latest = sealedDays[sealedDays.length - 1];
+          if (latest !== undefined) await pushDaySeal(latest);
+          await drainAi();
+          await get().refresh();
+          set({ ready: true });
+          wireRollover();
+        } catch (err) {
+          // Surface the failure and allow a retry instead of an eternal LOADING screen.
+          initPromise = null;
+          set({ initError: err instanceof Error ? err.message : String(err) });
+        }
       })();
       return initPromise;
     },
