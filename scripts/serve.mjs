@@ -1,21 +1,47 @@
-// One-command launcher: app preview server (:4173) + SCRIBE bridge (:4174).
+// One-command launcher: app preview (:4173) + SCRIBE bridge (:4174) and, when
+// cloudflared is installed, a free https tunnel to the bridge so the hosted app
+// (GitHub Pages) can reach it from anywhere. The tunnel URL is printed below —
+// paste it into the app: Hero → Settings → SCRIBE → BRIDGE URL.
 import { spawn } from 'node:child_process';
 
-function run(name, cmd, args) {
+function run(name, cmd, args, { onData, optional = false } = {}) {
   const child = spawn(cmd, args, { shell: true, windowsHide: true });
   const tag = `[${name}]`;
-  child.stdout.on('data', (d) => process.stdout.write(`${tag} ${d}`));
-  child.stderr.on('data', (d) => process.stderr.write(`${tag} ${d}`));
+  const pipe = (d) => {
+    process.stdout.write(`${tag} ${d}`);
+    if (onData) onData(String(d));
+  };
+  child.stdout.on('data', pipe);
+  child.stderr.on('data', pipe);
   child.on('close', (code) => {
     console.log(`${tag} exited ${code}`);
-    process.exit(code ?? 0);
+    if (!optional) process.exit(code ?? 0);
   });
   return child;
 }
 
-const app = run('app', 'npx', ['vite', 'preview', '--host']);
-const bridge = run('scribe', 'node', ['server/scribe-proxy.mjs']);
+const children = [];
+children.push(run('app', 'npx', ['vite', 'preview', '--host']));
+children.push(run('scribe', 'node', ['server/scribe-proxy.mjs']));
+
+// Quick tunnel (no Cloudflare account needed). URL changes on each restart.
+let announced = false;
+children.push(run('tunnel', 'cloudflared', ['tunnel', '--url', 'http://localhost:4174'], {
+  optional: true,
+  onData: (text) => {
+    const m = text.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
+    if (m && !announced) {
+      announced = true;
+      setTimeout(() => {
+        console.log('\n############################################################');
+        console.log('#  SCRIBE BRIDGE TUNNEL (paste into Settings > BRIDGE URL) #');
+        console.log(`#  ${m[0]}  `);
+        console.log('############################################################\n');
+      }, 500);
+    }
+  },
+}));
 
 for (const sig of ['SIGINT', 'SIGTERM']) {
-  process.on(sig, () => { app.kill(); bridge.kill(); process.exit(0); });
+  process.on(sig, () => { for (const c of children) c.kill(); process.exit(0); });
 }
