@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { TABS, type Tab, type IconName } from './tabs';
-import { useOath } from './store';
+import { useOath, type EffectEvent } from './store';
 import TodayScreen from '../ui/today/TodayScreen';
 import QuestsScreen from '../ui/quests/QuestsScreen';
 import TrainScreen from '../ui/train/TrainScreen';
@@ -23,6 +23,7 @@ import {
 } from '../ui/atoms';
 import Knight from '../ui/knight/Knight';
 import { ageLayersForLevel } from '../ui/knight/ages';
+import EffectsLayer from '../ui/effects/EffectsLayer';
 import type { Difficulty, Rank } from '../core/types';
 import { addDays, dayKey } from '../core/dates';
 
@@ -61,6 +62,20 @@ function GalleryScreen() {
     y: 100 + Math.round(30 * Math.sin(i / 3)) + i,
     pr: i === 22,
   }));
+  const pushEffect = (e: EffectEvent): void => {
+    useOath.setState((s) => ({ effects: [...s.effects, e] }));
+  };
+  const effectTriggers: { label: string; event: () => EffectEvent }[] = [
+    { label: '+75 XP', event: () => ({ kind: 'xp', amount: 75, at: Date.now() }) },
+    { label: 'LEVEL UP', event: () => ({ kind: 'levelUp', from: 17, to: 18 }) },
+    { label: 'AGE REVEAL', event: () => ({ kind: 'levelUp', from: 19, to: 20, ageReveal: 'CRUSADER' }) },
+    {
+      label: 'DAY SEAL',
+      event: () => ({ kind: 'daySeal', date: today, score: 94, rank: 'S', xp: 280, streak: 5 }),
+    },
+    { label: 'PR', event: () => ({ kind: 'pr', label: '225×5', xp: 25 }) },
+    { label: 'SIEGE KILL', event: () => ({ kind: 'siegeKill', name: 'THE HOLLOW KING' }) },
+  ];
 
   return (
     <div className="app-shell">
@@ -152,7 +167,28 @@ function GalleryScreen() {
             </div>
           ))}
         </div>
+
+        <SectionLabel>Effects — tap to trigger</SectionLabel>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {effectTriggers.map((t) => (
+            <button
+              key={t.label}
+              onClick={() => pushEffect(t.event())}
+              style={{
+                padding: '6px 12px',
+                border: '1px solid var(--neon)',
+                background: 'transparent',
+                color: 'var(--neon)',
+                fontFamily: 'var(--font-body)',
+                fontSize: 18,
+              }}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </PageFrame>
+      <EffectsLayer />
       <CrtOverlay />
     </div>
   );
@@ -199,6 +235,7 @@ export default function App() {
       <div style={{ paddingBottom: 56 }}>
         <Screen />
       </div>
+      <EffectsLayer />
       {crt && <CrtOverlay />}
       <nav
         className="tab-bar"
