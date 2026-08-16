@@ -173,6 +173,9 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
   const goals = useOath((s) => s.goals);
   const today = useOath((s) => s.today);
   const updateSettings = useOath((s) => s.updateSettings);
+  const syncStatus = useOath((s) => s.syncStatus);
+  const lastSyncAt = useOath((s) => s.lastSyncAt);
+  const storeSyncNow = useOath((s) => s.syncNow);
   const updateGoals = useOath((s) => s.updateGoals);
 
   const fileRef = useRef<HTMLInputElement>(null);
@@ -331,6 +334,21 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
           </Row>
           <div style={{ ...bodyText, color: 'var(--text-faint)' }}>
             BRIDGE: SCRIBE VIA YOUR PC&apos;S CLAUDE — LEAVE BLANK AT HOME, SET A TUNNEL URL WHEN AWAY
+          </div>
+          <Row label={`SYNC: ${syncStatus.toUpperCase()}${lastSyncAt !== null ? ` · ${new Date(lastSyncAt).toLocaleTimeString()}` : ''}`}>
+            <button
+              onClick={() => { void storeSyncNow(); }}
+              style={{
+                fontFamily: 'var(--font-label)', fontSize: 7, letterSpacing: '0.15em',
+                color: 'var(--neon)', background: 'none', border: '1px solid var(--border)',
+                padding: '6px 10px', cursor: 'pointer',
+              }}
+            >
+              SYNC NOW
+            </button>
+          </Row>
+          <div style={{ ...bodyText, color: 'var(--text-faint)' }}>
+            ONE SAVE ACROSS DEVICES VIA THE BRIDGE — PULLS ON OPEN, PUSHES AFTER CHANGES
           </div>
 
           <SectionLabel>DANGER</SectionLabel>

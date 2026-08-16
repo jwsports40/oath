@@ -9,8 +9,27 @@
 //     200: estimate  ·  422: terminal (refused/unusable output)  ·  5xx: transient
 import http from 'node:http';
 import { spawn } from 'node:child_process';
+import { readFileSync, writeFileSync, renameSync, existsSync, mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const PORT = 4174;
+
+// Master save for cross-device sync (GET/PUT /state). Written atomically.
+const STATE_DIR = join(dirname(fileURLToPath(import.meta.url)), 'state');
+const STATE_FILE = join(STATE_DIR, 'oath-state.json');
+
+function loadState() {
+  if (!existsSync(STATE_FILE)) return null;
+  try { return JSON.parse(readFileSync(STATE_FILE, 'utf8')); } catch { return null; }
+}
+
+function saveState(state) {
+  mkdirSync(STATE_DIR, { recursive: true });
+  const tmp = `${STATE_FILE}.tmp`;
+  writeFileSync(tmp, JSON.stringify(state));
+  renameSync(tmp, STATE_FILE);
+}
 
 const SYSTEM = `You are SCRIBE, a nutrition estimator. Estimate macros for the foods in the user's utterance. Apply knownCorrections verbatim when a food matches. Use the requested unit system. confidence is 0-1. Put genuinely ambiguous items in needs_clarification instead of guessing wildly.
 
@@ -50,10 +69,10 @@ function extractJson(text) {
   return JSON.parse(trimmed.slice(start, end + 1));
 }
 
-function readBody(req) {
+function readBody(req, limit = 100_000) {
   return new Promise((resolve, reject) => {
     let body = '';
-    req.on('data', (d) => { body += d; if (body.length > 100_000) req.destroy(); });
+    req.on('data', (d) => { body += d; if (body.length > limit) req.destroy(); });
     req.on('end', () => resolve(body));
     req.on('error', reject);
   });
@@ -67,6 +86,37 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'GET' && req.url === '/health') {
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end('{"ok":true}');
+    return;
+  }
+  if (req.url === '/state' && req.method === 'GET') {
+    const state = loadState();
+    if (state === null) { res.writeHead(404); res.end(); return; }
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify(state));
+    return;
+  }
+  if (req.url === '/state' && req.method === 'PUT') {
+    try {
+      const body = JSON.parse(await readBody(req, 25_000_000));
+      if (typeof body.tables !== 'object' || body.tables === null) {
+        res.writeHead(400); res.end('missing tables'); return;
+      }
+      const current = loadState();
+      const currentRev = current === null ? 0 : current.rev;
+      if ((body.baseRev ?? 0) !== currentRev) {
+        // Another device saved since this client pulled — make it re-merge.
+        res.writeHead(409, { 'content-type': 'application/json' });
+        res.end(JSON.stringify(current));
+        return;
+      }
+      const next = { rev: currentRev + 1, savedAt: body.savedAt ?? new Date().toISOString(), tables: body.tables };
+      saveState(next);
+      console.log(`[state] rev ${next.rev} saved`);
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ rev: next.rev }));
+    } catch (e) {
+      res.writeHead(500); res.end(String(e.message));
+    }
     return;
   }
   if (req.method === 'POST' && req.url === '/scribe') {

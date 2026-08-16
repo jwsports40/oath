@@ -20,6 +20,8 @@ import { armorAgeForLevel, levelForXp, titleForLevel } from '../game/xp';
 import { perQuestStreak } from '../game/streaks';
 import { INITIAL_VIGOR, vigorBand as bandOf } from '../game/vigor';
 import { scheduleNotifications } from './notify';
+import { resolveBridgeUrl } from '../ai/nutrition';
+import { syncNow } from '../data/sync';
 import type { Tab } from './tabs';
 import type {
   Achievement, Category, Character, DailyScore, Exercise, ExerciseSet, FoodEntry, Meal,
@@ -36,6 +38,8 @@ export type EffectEvent =
 
 export interface OathStore {
   ready: boolean; initError: string | null; today: string; tab: Tab;
+  syncStatus: 'off' | 'syncing' | 'synced' | 'error'; lastSyncAt: string | null;
+  syncNow(): Promise<void>;
   instances: QuestInstance[];                 // today's, sorted: main first, required, optional
   templates: QuestTemplate[]; categories: Category[];
   character: Character & { title: string; armorAge: [number, string, string]; into: number; next: number };
@@ -176,6 +180,40 @@ export const useOath = create<OathStore>()((set, get) => {
     await get().refresh();
   };
 
+  /**
+   * Cross-device sync through the bridge (see data/sync.ts). Debounced after
+   * mutations; pulled on init and when the app returns to the foreground.
+   * suppressSync prevents the restore-triggered refresh from re-scheduling.
+   */
+  let suppressSync = false;
+  let syncTimer: ReturnType<typeof setTimeout> | null = null;
+  const doSync = async (): Promise<void> => {
+    const url = resolveBridgeUrl(get().settings.bridgeUrl);
+    if (url === null || typeof fetch === 'undefined') { set({ syncStatus: 'off' }); return; }
+    if (suppressSync) return;
+    suppressSync = true;
+    set({ syncStatus: 'syncing' });
+    try {
+      const { status } = await syncNow(url);
+      if (status === 'synced') {
+        set({ syncStatus: 'synced', lastSyncAt: new Date().toISOString() });
+        suppressSync = true; // refresh below must not reschedule a push
+        await get().refresh();
+      } else {
+        set({ syncStatus: 'off' });
+      }
+    } catch {
+      set({ syncStatus: 'error' });
+    } finally {
+      suppressSync = false;
+    }
+  };
+  const scheduleSync = (): void => {
+    if (suppressSync || typeof window === 'undefined') return;
+    if (syncTimer !== null) clearTimeout(syncTimer);
+    syncTimer = setTimeout(() => { syncTimer = null; void doSync(); }, 4000);
+  };
+
   /** Midnight timer + visibility/online listeners (browser only; no-op in tests). */
   const wireRollover = (): void => {
     if (rolloverWired || typeof window === 'undefined' || typeof document === 'undefined') return;
@@ -187,7 +225,9 @@ export const useOath = create<OathStore>()((set, get) => {
     };
     arm();
     document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible' && dayKey(new Date()) !== get().today) void rollover();
+      if (document.visibilityState !== 'visible') return;
+      if (dayKey(new Date()) !== get().today) void rollover();
+      void doSync();
     });
     window.addEventListener('online', () => {
       void drainAi().then(() => get().refresh());
@@ -197,6 +237,9 @@ export const useOath = create<OathStore>()((set, get) => {
   return {
     ready: false,
     initError: null,
+    syncStatus: 'off' as const,
+    lastSyncAt: null,
+    async syncNow(): Promise<void> { await doSync(); },
     today: dayKey(new Date()),
     tab: 'today',
     instances: [],
@@ -250,6 +293,7 @@ export const useOath = create<OathStore>()((set, get) => {
           await get().refresh();
           set({ ready: true });
           wireRollover();
+          void doSync(); // pull the shared save once the UI is up
         } catch (err) {
           // Surface the failure and allow a retry instead of an eternal LOADING screen.
           initPromise = null;
@@ -566,6 +610,8 @@ export const useOath = create<OathStore>()((set, get) => {
       // after init, midnight rollover, and every mutation, so plans always track
       // current quest/streak state. No-op outside the browser.
       scheduleNotifications(get());
+      // Push local changes to the shared save shortly after things settle.
+      scheduleSync();
     },
   };
 });
