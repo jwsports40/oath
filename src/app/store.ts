@@ -67,6 +67,7 @@ export interface OathStore {
   finishSession(sessionId: string, notes?: string): Promise<void>; // completes today's GYM instance
   logMealUtterance(text: string): Promise<void>;    // → ai queue (Task 16)
   correctFoodEntry(mealId: string, idx: number, patch: Partial<FoodEntry>): Promise<void>;
+  deleteMeal(mealId: string): Promise<void>;
   editPastDay(date: string, instanceId: string, done: boolean): Promise<void>;
   updateSettings(patch: Partial<UserSettings>): Promise<void>;
   updateGoals(patch: Partial<NutritionGoal>): Promise<void>;
@@ -420,6 +421,32 @@ export const useOath = create<OathStore>()((set, get) => {
         cal: entry.calories, p: entry.protein_g, c: entry.carbs_g, f: entry.fat_g,
       });
       await kvSet('corrections', corrections.slice(-20));
+      await get().refresh();
+    },
+
+    async deleteMeal(mealId: string): Promise<void> {
+      const meal = await db.meals.get(mealId);
+      if (meal === undefined) return;
+      await db.meals.delete(mealId);
+      // Drop any still-queued SCRIBE item for this meal.
+      const queue = await kvGet<AiQueueItem[]>('aiQueue', []);
+      await kvSet('aiQueue', queue.filter((i) => i.mealId !== mealId));
+      // The meal-plan quest is auto-evaluated; if its rules no longer hold after
+      // the deletion, revert the auto-completion symmetrically.
+      const nutrition = (await db.instances.where('date').equals(get().today).toArray())
+        .find((i) => i.kind === 'nutrition' && i.status === 'done');
+      if (nutrition !== undefined) {
+        const goals = await kvGet<NutritionGoal>('nutritionGoal', DEFAULT_NUTRITION_GOAL);
+        const rules = goals.mealPlanRules;
+        const meals = (await db.meals.where('date').equals(get().today).toArray())
+          .filter((m) => m.entries.length > 0);
+        const macros = macroTotals(meals);
+        const proteinOk = !rules.proteinGoal || macros.p >= goals.protein;
+        const calOk = Math.abs(macros.cal - goals.calories) <= goals.calories * (rules.calorieBandPct / 100);
+        if (!(proteinOk && calOk && meals.length >= rules.minMeals)) {
+          await uncompleteInstance(nutrition.id);
+        }
+      }
       await get().refresh();
     },
 

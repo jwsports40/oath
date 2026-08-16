@@ -131,6 +131,7 @@ export default function FuelScreen() {
   const aiQueueSize = useOath((s) => s.aiQueueSize);
   const logMealUtterance = useOath((s) => s.logMealUtterance);
   const correctFoodEntry = useOath((s) => s.correctFoodEntry);
+  const deleteMeal = useOath((s) => s.deleteMeal);
   const addHydration = useOath((s) => s.addHydration);
 
   const [draft, setDraft] = useState('');
@@ -249,7 +250,22 @@ export default function FuelScreen() {
               <span style={{ fontFamily: 'var(--font-body)', fontSize: 16, color: 'var(--text-low)' }}>
                 MEAL · {timeOf(meal.at)}
               </span>
-              <StatusBadge status={meal.status} />
+              <span style={{ display: 'flex', gap: 10, alignItems: 'baseline' }}>
+                <StatusBadge status={meal.status} />
+                <button
+                  aria-label="delete meal"
+                  onClick={() => {
+                    if (window.confirm('STRIKE THIS MEAL FROM THE LEDGER?')) void deleteMeal(meal.id);
+                  }}
+                  style={{
+                    fontFamily: 'var(--font-body)', fontSize: 16, color: 'var(--ember)',
+                    background: 'none', border: '1px solid var(--hairline)', padding: '0 6px',
+                    cursor: 'pointer', lineHeight: '20px',
+                  }}
+                >
+                  ✕
+                </button>
+              </span>
             </div>
             {meal.entries.length === 0 && meal.utterance !== undefined && (
               <div style={{ fontFamily: 'var(--font-body)', fontSize: 18, color: 'var(--text-faint)', marginTop: 4 }}>
