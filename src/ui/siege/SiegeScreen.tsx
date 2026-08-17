@@ -210,10 +210,10 @@ export function SiegeView({
         {villain !== null && (
           <div style={{ border: '1px solid var(--hairline)', padding: '6px 10px', fontFamily: 'var(--font-body)', fontSize: 16 }}>
             <div style={{ color: 'var(--text-mid)' }}>
-              {villain.normal.label} — {villain.normal.dmg} HP
+              {villain.normal.label} — {siege.strikeDmg ?? villain.normal.dmg} HP
             </div>
             <div style={{ color: 'var(--ember)' }}>
-              {villain.signature.label} — {villain.signature.dmg} HP · {villain.signature.desc}
+              {villain.signature.label} — {siege.sigDmg ?? villain.signature.dmg} HP · {villain.signature.desc}
             </div>
           </div>
         )}

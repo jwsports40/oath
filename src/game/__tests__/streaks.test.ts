@@ -105,3 +105,38 @@ describe('perQuestStreak', () => {
     expect(streak).toBe(2);
   });
 });
+
+describe('pinned knight-scaled strikes', () => {
+  it('a sub-C day uses the week siege pinned damage instead of roster numbers', () => {
+    // 2026-08-03 is a Monday (week start). First bad day fires the signature.
+    const days = [day('2026-08-03', 'F', 20)];
+    const week = '2026-08-03';
+    const pinned = foldStreaks(days, {
+      level: 1,
+      villainByWeek: { [week]: 'darkDungeonKnight' },
+      strikesByWeek: { [week]: { normal: 20, sig: 30 } },
+    });
+    // Signature fires on the first bad day: 30 damage (roster value is 5).
+    expect(pinned.body.hp).toBe(100 - 30);
+
+    const roster = foldStreaks(days, {
+      level: 1, villainByWeek: { [week]: 'darkDungeonKnight' },
+    });
+    expect(roster.body.hp).toBe(100 - 5);
+  });
+
+  it('normal strikes after the signature also use the pinned value', () => {
+    const week = '2026-08-03';
+    const days = [
+      day('2026-08-03', 'F', 20),  // signature: 30
+      day('2026-08-04', 'F', 20),  // cooldown: normal 20
+      day('2026-08-05', 'F', 20),  // recharged: signature 30 again
+    ];
+    const { body } = foldStreaks(days, {
+      level: 1,
+      villainByWeek: { [week]: 'darkDungeonKnight' },
+      strikesByWeek: { [week]: { normal: 20, sig: 30 } },
+    });
+    expect(body.hp).toBe(100 - 30 - 20 - 30);
+  });
+});

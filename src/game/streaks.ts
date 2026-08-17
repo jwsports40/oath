@@ -40,6 +40,7 @@ export function foldStreaks(
   opts: {
     level: number; effects?: Partial<LootEffects>;
     villainByWeek?: Record<string, string>;   // weekStart -> pinned villain key
+    strikesByWeek?: Record<string, { normal: number; sig: number }>;  // pinned pre-spoils damage
   } = { level: 1 },
 ): {
   state: StreakState; emberSpentDates: string[]; body: BodyState;
@@ -103,15 +104,16 @@ export function foldStreaks(
       const villain = (pinned !== undefined ? villainByKey(pinned) : undefined)
         ?? villainFor(opts.level, week);
       let dmg: number;
+      const pinnedDmg = opts.strikesByWeek?.[week];
       if (sigCd === 0) {
-        dmg = villain.signature.dmg;
+        dmg = pinnedDmg?.sig ?? villain.signature.dmg;
         sigCd = SIGNATURE_COOLDOWN_DAYS;
         pendingStatus = {
           villain: villain.key, label: villain.signature.label,
           desc: villain.signature.desc, mods: villain.signature.mods,
         };
       } else {
-        dmg = villain.normal.dmg + villainBonusNext;
+        dmg = (pinnedDmg?.normal ?? villain.normal.dmg) + villainBonusNext;
         villainBonusNext = 0;
       }
       const bulwark = Math.round(armor * mods.bulwarkMult * mods.enchantMult);

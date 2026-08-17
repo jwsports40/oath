@@ -38,6 +38,8 @@ export interface SiegeState {
   carryover:number; overkill:number; log:{at:string; label:string; amount:number; crit:boolean}[];
   killed:boolean; fragmentsAwarded:boolean;
   villainKey?:string;   // pinned at week start — leveling mid-week never switches the boss
+  strikeDmg?:number;    // pinned pre-spoils: kills the knight-at-arrival in 5 days (final boss: 6)
+  sigDmg?:number;       // pinned signature damage (1.5x the strike)
 }
 export interface WorkoutProgram { id:string; name:string; days:WorkoutDay[]; active:boolean; }
 export interface WorkoutDay { id:string; name:string; weekday:number[]; exercises:PlannedExercise[]; }  // weekday 1..7

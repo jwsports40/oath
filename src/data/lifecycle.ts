@@ -13,7 +13,7 @@ import { foldStreaks, perQuestStreak, rankAtLeast, type DayOutcome } from '../ga
 import { nextVigor, INITIAL_VIGOR } from '../game/vigor';
 import { newSiege, bossHeal, dealDamage, KILL_XP } from '../game/siege';
 import {
-  carryFactor, critMult, dmgMult, healPct, optionalCap, workoutXpMult,
+  carryFactor, critMult, dmgMult, healPct, maxHpFor, optionalCap, workoutXpMult,
 } from '../game/body';
 import { chestEntitlements, equippedIds, lootEffects, type LootEffects } from '../game/loot';
 import { NO_MODS, mergeMods, villainByKey, villainFor, type StatusMods } from '../game/villains';
@@ -21,8 +21,8 @@ import type { DayStatus } from '../game/streaks';
 import { ARMOR_AGES, DIFFICULTY, TITLES } from '../core/types';
 import { DEFAULT_NUTRITION_GOAL } from './seed';
 import type {
-  Achievement, Character, Chest, DailyScore, Equipped, LootItem, NutritionGoal,
-  QuestInstance, QuestTemplate, Rank, SiegeState, Unlock,
+  Achievement, Character, Chest, DailyScore, Difficulty, Equipped, LootItem,
+  NutritionGoal, QuestInstance, QuestKind, QuestTemplate, Rank, SiegeState, Unlock,
 } from '../core/types';
 
 /**
@@ -425,11 +425,15 @@ export async function recomputeDerived(): Promise<void> {
     .filter((x): x is LootItem => x !== undefined);
   const ageLevel = settings.adminKnightLevel ?? level;
   const villainByWeek: Record<string, string> = {};
+  const strikesByWeek: Record<string, { normal: number; sig: number }> = {};
   for (const sg of await db.sieges.toArray()) {
     if (sg.villainKey !== undefined) villainByWeek[sg.weekStart] = sg.villainKey;
+    if (sg.strikeDmg !== undefined) {
+      strikesByWeek[sg.weekStart] = { normal: sg.strikeDmg, sig: sg.sigDmg ?? Math.round(sg.strikeDmg * 1.5) };
+    }
   }
   const { state: streaks, emberSpentDates, body, statusByDate, sigCooldown } = foldStreaks(outcomes, {
-    level: ageLevel, effects: lootEffects(equippedItems), villainByWeek,
+    level: ageLevel, effects: lootEffects(equippedItems), villainByWeek, strikesByWeek,
   });
   await kvSet('streaks', streaks);
   await kvSet('body', body);
@@ -619,6 +623,40 @@ export async function editPastDay(date: string, instanceId: string, done: boolea
  * Σ base XP of required instances scheduled Mon..Sun of the week — materialized
  * days use their instances, future days are projected from templates.
  */
+/**
+ * Pre-spoils projection of the damage a full-clear week deals: every required
+ * quest's XP (STR + age perks, NO loot) through the siege multipliers.
+ */
+export async function weekProjectedDamage(
+  weekStart: string,
+  ctx: { str: number; wil: number; ageLevel: number },
+): Promise<number> {
+  const templates = await db.templates.toArray();
+  const dmgOf = (difficulty: Difficulty, kind: QuestKind, main: boolean): number => {
+    let base = DIFFICULTY[difficulty].xp;
+    if (kind === 'workout') base = round(base * workoutXpMult(ctx.str, ctx.ageLevel));
+    return round(base * dmgMult(ctx.ageLevel) * (main ? critMult(ctx.wil, ctx.ageLevel) : 1));
+  };
+  let total = 0;
+  for (const d of eachDay(weekStart, addDays(weekStart, 6))) {
+    const instances = await db.instances.where('date').equals(d).toArray();
+    if (instances.length > 0) {
+      total += instances
+        .filter((i) => !i.optional)
+        .reduce((sum, i) => sum + dmgOf(i.difficulty, i.kind, i.main), 0);
+    } else {
+      total += templates
+        .filter((t) =>
+          t.archivedAt === undefined
+          && !effectiveOptional(t)
+          && dayKey(new Date(t.createdAt)) <= d
+          && isScheduled(t.recurrence, d))
+        .reduce((sum, t) => sum + dmgOf(t.difficulty, t.kind, t.main), 0);
+    }
+  }
+  return total;
+}
+
 export async function weekAvailableXp(weekStart: string): Promise<number> {
   const templates = await db.templates.toArray();
   let total = 0;
@@ -642,10 +680,44 @@ export async function weekAvailableXp(weekStart: string): Promise<number> {
 }
 
 /** Get (or create, on a new week) this week's siege, seeded from the prior boss. */
+/** Round to the nearest 10, half-up (boss HP granularity). */
+const round10 = (x: number): number => Math.floor(x / 10 + 0.5) * 10;
+
+/**
+ * Scale a freshly risen boss to the knight AT ARRIVAL, spoils excluded:
+ * - maxHp = 5 full-clear days of the knight's projected damage (final boss: 7),
+ *   so a killer week needs 5 S-days with 2 to spare.
+ * - strikeDmg = knight's pre-spoils max HP / 5 (final boss: / 4) — basic
+ *   attacks alone kill an idle knight before the week is out.
+ */
+async function scaleSiegeToKnight(siege: SiegeState, villainKey: string): Promise<void> {
+  const perk = await perkContext();
+  const finalBoss = villainKey === 'ultimateDarkLord';
+  const weekDmg = await weekProjectedDamage(siege.weekStart, perk);
+  const killDays = finalBoss ? 7 : 5;
+  const gen = Math.pow(1.05, siege.generation);
+  const dealt = Math.max(0, siege.maxHp - siege.hp);
+  siege.maxHp = Math.max(50, round10((killDays * weekDmg / 7) * gen));
+  siege.hp = Math.max(siege.killed ? 0 : 1, siege.maxHp - Math.max(dealt, siege.carryover));
+  const body = await kvGet<{ proteinDays: number }>('body', { proteinDays: 0 });
+  const playerMax = maxHpFor(body.proteinDays);
+  siege.strikeDmg = Math.max(1, Math.ceil(playerMax / (finalBoss ? 4 : 5)));
+  siege.sigDmg = Math.round(siege.strikeDmg * 1.5);
+}
+
 export async function ensureSiege(today: string): Promise<SiegeState> {
   const weekStart = weekStartOf(today);
   const existing = await db.sieges.get(weekStart);
-  if (existing !== undefined) return existing;
+  if (existing !== undefined) {
+    if (existing.strikeDmg === undefined && existing.villainKey !== undefined) {
+      // Boss from before knight-scaling shipped — rescale in place, keeping
+      // the damage already dealt this week.
+      await scaleSiegeToKnight(existing, existing.villainKey);
+      await db.sieges.put(existing);
+      await recomputeDerived();
+    }
+    return existing;
+  }
   const prior = (await db.sieges.toArray())
     .filter((s) => s.weekStart < weekStart)
     .sort((a, b) => (a.weekStart < b.weekStart ? -1 : 1))
@@ -663,6 +735,7 @@ export async function ensureSiege(today: string): Promise<SiegeState> {
   const villain = returning ?? villainFor(perk.ageLevel, weekStart);
   siege.villainKey = villain.key;
   siege.name = siege.generation > 0 ? `${villain.name} RISEN` : villain.name;
+  await scaleSiegeToKnight(siege, villain.key);
   await db.sieges.add(siege);
   return siege;
 }
