@@ -50,21 +50,29 @@ function CardKnight({ src, level, full, vigorBand, size }: {
       />
     );
   }
-  // Bust: tight helm portrait (helm sits ~28-44% down the card, centered).
-  const imgW = size * 2.8;
-  const imgH = imgW * 1.85; // approximate card aspect
+  // Bust: tight helm portrait, helmet CENTERED in the window for every age.
+  // The two card rows have different shapes: ages 1-50 are 246x492 (helm center
+  // ~36.5% down), ages 60-100 are 268x442 with a larger knight (helm ~30%).
+  const band = AGE_BANDS.find((b) => level >= b) ?? 1;
+  const bottomRow = band >= 60;
+  const aspect = bottomRow ? 442 / 268 : 492 / 246;
+  const helmCenter = bottomRow ? 0.30 : 0.365;
+  const imgW = size * (bottomRow ? 2.5 : 2.8);
+  const imgH = imgW * aspect;
+  const containerH = Math.round(size * 0.82);
+  const top = -(helmCenter * imgH - containerH / 2);
   return (
     <div
       role="img"
       aria-label={label}
-      style={{ width: size, height: Math.round(size * 0.82), overflow: 'hidden', position: 'relative' }}
+      style={{ width: size, height: containerH, overflow: 'hidden', position: 'relative' }}
     >
       <img
         src={src}
         alt=""
         style={{
           position: 'absolute', width: imgW, height: 'auto',
-          left: -(imgW - size) / 2, top: -imgH * 0.28,
+          left: -(imgW - size) / 2, top,
           imageRendering: 'pixelated', filter,
         }}
       />
