@@ -33,10 +33,65 @@ function saveState(state) {
 
 const SYSTEM = `You are SCRIBE, a nutrition estimator. Estimate macros for the foods in the user's utterance. Apply knownCorrections verbatim when a food matches. Use the requested unit system. confidence is 0-1. Put genuinely ambiguous items in needs_clarification instead of guessing wildly.
 
+For each entry ALSO give: "grams" (your best estimate of the entry's total edible weight in grams) and "fdc_query" (a short generic USDA food-database search term for it, e.g. "egg whole raw" or "chicken breast cooked").
+
 Respond with ONLY a JSON object (no prose, no code fences, no tool use) of this exact shape:
-{"entries":[{"food":string,"quantity":number,"unit":string,"calories":number,"protein_g":number,"carbs_g":number,"fat_g":number,"confidence":number,"assumptions":string[]}],"needs_clarification":string[]}
+{"entries":[{"food":string,"quantity":number,"unit":string,"grams":number,"fdc_query":string,"calories":number,"protein_g":number,"carbs_g":number,"fat_g":number,"confidence":number,"assumptions":string[]}],"needs_clarification":string[]}
 
 The request follows as JSON:`;
+
+// --- USDA FoodData Central grounding -----------------------------------------
+// The federal nutrient database behind FDA nutrition labeling. When a food
+// matches, its lab-measured per-100g values REPLACE the model's guess, scaled
+// by the model's gram estimate. Get a free key at https://fdc.nal.usda.gov/api-key-signup
+// and set FDC_API_KEY (DEMO_KEY works but is rate-limited).
+const FDC_KEY = process.env.FDC_API_KEY ?? 'DEMO_KEY';
+const FDC_NUTRIENTS = { 1008: 'calories', 1003: 'protein_g', 1005: 'carbs_g', 1004: 'fat_g' };
+// Energy sometimes appears as Atwater ids on Foundation foods.
+const FDC_ENERGY_ALT = [2047, 2048];
+
+async function fdcLookup(query) {
+  const url = 'https://api.nal.usda.gov/fdc/v1/foods/search?api_key=' + FDC_KEY
+    + '&query=' + encodeURIComponent(query)
+    + '&dataType=' + encodeURIComponent('Foundation,SR Legacy')
+    + '&pageSize=1';
+  const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
+  if (!res.ok) throw new Error('fdc http ' + res.status);
+  const hit = (await res.json()).foods?.[0];
+  if (hit === undefined) return null;
+  const per100 = { calories: null, protein_g: null, carbs_g: null, fat_g: null };
+  for (const n of hit.foodNutrients ?? []) {
+    const key = FDC_NUTRIENTS[n.nutrientId];
+    if (key !== undefined && per100[key] === null && typeof n.value === 'number') per100[key] = n.value;
+    if (per100.calories === null && FDC_ENERGY_ALT.includes(n.nutrientId) && typeof n.value === 'number') {
+      per100.calories = n.value;
+    }
+  }
+  if (per100.protein_g === null && per100.calories === null) return null;
+  return { description: hit.description, per100 };
+}
+
+async function groundEntries(entries) {
+  await Promise.all(entries.map(async (e) => {
+    const grams = typeof e.grams === 'number' && e.grams > 0 ? e.grams : null;
+    const query = typeof e.fdc_query === 'string' && e.fdc_query !== '' ? e.fdc_query : e.food;
+    if (grams === null || typeof query !== 'string') return;
+    try {
+      const hit = await fdcLookup(query);
+      if (hit === null) return;
+      const f = grams / 100;
+      for (const key of ['calories', 'protein_g', 'carbs_g', 'fat_g']) {
+        const v = hit.per100[key];
+        if (typeof v === 'number') e[key] = Math.round(v * f * 10) / 10;
+      }
+      e.confidence = Math.max(e.confidence ?? 0, 0.9);
+      e.assumptions = [...(e.assumptions ?? []), `USDA FDC: ${hit.description} (${grams}g)`];
+      console.log(`[fdc] ${query} -> ${hit.description}`);
+    } catch (err) {
+      console.log(`[fdc] lookup failed for "${query}": ${err.message}`);
+    }
+  }));
+}
 
 function runClaude(prompt) {
   return new Promise((resolve, reject) => {
@@ -144,6 +199,7 @@ const server = http.createServer(async (req, res) => {
         res.end('subagent output missing required fields');
         return;
       }
+      await groundEntries(parsed.entries);
       console.log(`[scribe] ok: ${parsed.entries.length} entries`);
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify(parsed));
