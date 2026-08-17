@@ -61,6 +61,13 @@ async function runMigrations(): Promise<void> {
     }
     await kvSet('migr-no-optional', true);
   }
+  // m2: rebuild siege state from surviving completions — undoes kills farmed
+  // via the old check/uncheck exploit (damage now reverts on uncheck).
+  if (!(await kvGet('migr-siege-rebuild-1', false))) {
+    const { rebuildSieges } = await import('./lifecycle');
+    await rebuildSieges();
+    await kvSet('migr-siege-rebuild-1', true);
+  }
 }
 
 export async function seedIfEmpty(): Promise<void> {

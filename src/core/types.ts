@@ -56,7 +56,7 @@ export type LootTier = 'common'|'rare'|'mythic';
 export type ChestKind = 'wooden'|'war'|'gilded';
 export interface Chest { id:string; kind:ChestKind; source:string; earnedAt:string; openedAt?:string; }
 export interface LootItem { id:string; chestId:string; itemKey:string; genre:LootGenre; tier:LootTier; name:string; obtainedAt:string; }
-export interface Equipped { token?:string; enchant?:string; totem?:string; }   // slot -> LootItem id
+export interface Equipped { slots?:string[]; token?:string; enchant?:string; totem?:string; }  // up to 3 LootItem ids (legacy per-genre fields migrate into slots)
 export interface Achievement { id:string; name:string; desc:string; target:number; progress:number; unlockedAt?:string; }
 export interface UserSettings {
   units:'oz'|'ml'; sound:boolean; haptics:boolean; crt:boolean; fxIntensity:'full'|'reduced'|'off';

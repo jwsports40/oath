@@ -30,7 +30,7 @@ import type {
   QuestTemplate, Rank, SiegeState, StreakState, Unlock, UserSettings, WorkoutProgram,
   WorkoutSession,
 } from '../core/types';
-import { CHEST_NAMES, lootDesc, rollChest, CATALOG } from '../game/loot';
+import { CHEST_NAMES, MAX_ATTACHED, equippedIds, lootDesc, rollChest, CATALOG } from '../game/loot';
 
 export type EffectEvent =
   | { kind: 'xp'; amount: number; at: number }
@@ -83,7 +83,7 @@ export interface OathStore {
   updateSettings(patch: Partial<UserSettings>): Promise<void>;
   updateGoals(patch: Partial<NutritionGoal>): Promise<void>;
   openChest(chestId: string): Promise<void>;
-  equipItem(slot: keyof Equipped, itemId: string | null): Promise<void>;
+  toggleEquip(itemId: string): Promise<void>;
   popEffect(): void;
   refresh(): Promise<void>;                        // reload all derived views from db
 }
@@ -552,12 +552,13 @@ export const useOath = create<OathStore>()((set, get) => {
       await get().refresh();
     },
 
-    async equipItem(slot: keyof Equipped, itemId: string | null): Promise<void> {
+    async toggleEquip(itemId: string): Promise<void> {
       const equipped = await kvGet<Equipped>('equipped', {});
-      const next: Equipped = { ...equipped };
-      if (itemId === null) delete next[slot];
-      else next[slot] = itemId;
-      await kvSet('equipped', next);
+      const slots = equippedIds(equipped);
+      const next = slots.includes(itemId)
+        ? slots.filter((x) => x !== itemId)
+        : slots.length < MAX_ATTACHED ? [...slots, itemId] : slots; // full — no-op
+      await kvSet<Equipped>('equipped', { slots: next });
       await get().refresh();
     },
 

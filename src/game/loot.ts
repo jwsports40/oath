@@ -124,7 +124,17 @@ export function chestEntitlements(history: {
   return out;
 }
 
-/** Aggregate live effects of the attached items (at most one per slot). */
+export const MAX_ATTACHED = 3;
+
+/** Equipped item ids — reads the slots list, falling back to legacy per-genre fields. */
+export function equippedIds(e: { slots?: string[]; token?: string; enchant?: string; totem?: string }): string[] {
+  if (Array.isArray(e.slots)) return e.slots.slice(0, MAX_ATTACHED);
+  return [e.token, e.enchant, e.totem]
+    .filter((x): x is string => typeof x === 'string')
+    .slice(0, MAX_ATTACHED);
+}
+
+/** Aggregate live effects of the attached items (up to MAX_ATTACHED, any mix). */
 export interface LootEffects {
   xpAll: number; xpWorkout: number; xpMain: number; xpFirst: number;
   strikeArmor: number; siegeDmg: number; healPtDown: number; regenBonus: number;

@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useOath } from '../../app/store';
-import { CHEST_NAMES, lootDesc } from '../../game/loot';
-import type { Equipped, LootGenre, LootItem } from '../../core/types';
+import { CHEST_NAMES, MAX_ATTACHED, equippedIds, lootDesc } from '../../game/loot';
+import type { LootGenre, LootItem } from '../../core/types';
 import { Panel, SectionLabel } from '../atoms';
 import chestPng from '../loot/chest.png';
 import { emblemUrl } from '../loot/emblems';
@@ -13,9 +13,6 @@ import Codex from './Codex';
 const bodyText: CSSProperties = { fontFamily: 'var(--font-body)', fontSize: 18 };
 const TIER_COLOR: Record<string, string> = {
   common: 'var(--text-mid)', rare: 'var(--gild)', mythic: 'var(--neon)',
-};
-const SLOT_OF: Record<LootGenre, keyof Equipped> = {
-  token: 'token', enchant: 'enchant', totem: 'totem',
 };
 const GENRE_LABEL: Record<LootGenre, string> = {
   token: 'TOKENS', enchant: 'ENCHANTMENTS', totem: 'TOTEMS',
@@ -27,14 +24,14 @@ export default function Spoils() {
   const loot = useOath((s) => s.loot);
   const equipped = useOath((s) => s.equipped);
   const openChest = useOath((s) => s.openChest);
-  const equipItem = useOath((s) => s.equipItem);
+  const toggleEquip = useOath((s) => s.toggleEquip);
 
   const unopened = chests.filter((c) => c.openedAt === undefined);
-  const equippedIds = new Set(Object.values(equipped).filter((x): x is string => typeof x === 'string'));
+  const attached = new Set(equippedIds(equipped));
+  const slotsFull = attached.size >= MAX_ATTACHED;
 
   const renderItem = (item: LootItem) => {
-    const slot = SLOT_OF[item.genre];
-    const isOn = equippedIds.has(item.id);
+    const isOn = attached.has(item.id);
     return (
       <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--hairline)' }}>
         <img
@@ -52,12 +49,14 @@ export default function Spoils() {
           <div style={{ ...bodyText, fontSize: 15, color: 'var(--text-low)' }}>{lootDesc(item)}</div>
         </div>
         <button
-          onClick={() => { void equipItem(slot, isOn ? null : item.id); }}
+          onClick={() => { void toggleEquip(item.id); }}
+          disabled={!isOn && slotsFull}
           style={{
             fontFamily: 'var(--font-label)', fontSize: 7, letterSpacing: '0.15em',
-            color: isOn ? 'var(--on-neon)' : 'var(--neon)',
+            color: isOn ? 'var(--on-neon)' : !isOn && slotsFull ? 'var(--text-faint)' : 'var(--neon)',
             background: isOn ? 'var(--neon)' : 'none',
-            border: '1px solid var(--border)', padding: '6px 10px', cursor: 'pointer',
+            border: '1px solid var(--border)', padding: '6px 10px',
+            cursor: !isOn && slotsFull ? 'default' : 'pointer',
           }}
         >
           {isOn ? 'ATTACHED' : 'ATTACH'}
@@ -69,7 +68,7 @@ export default function Spoils() {
   return (
     <section>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <SectionLabel>SPOILS</SectionLabel>
+        <SectionLabel>SPOILS — {attached.size}/{MAX_ATTACHED} ATTACHED</SectionLabel>
         <button
           aria-label="open codex"
           onClick={() => setCodexOpen(true)}

@@ -15,7 +15,7 @@ import { newSiege, bossHeal, dealDamage, KILL_XP } from '../game/siege';
 import {
   carryFactor, critMult, dmgMult, healPct, optionalCap, workoutXpMult,
 } from '../game/body';
-import { chestEntitlements, lootEffects, type LootEffects } from '../game/loot';
+import { chestEntitlements, equippedIds, lootEffects, type LootEffects } from '../game/loot';
 import { ARMOR_AGES, DIFFICULTY, TITLES } from '../core/types';
 import { DEFAULT_NUTRITION_GOAL } from './seed';
 import type {
@@ -33,9 +33,7 @@ async function perkContext(): Promise<{
   const ch = await kvGet<Character>('character', { level: 1, xpTotal: 0, str: 10, vit: 10, wil: 10, stam: 10 });
   const settings = await kvGet<{ adminKnightLevel?: number }>('settings', {});
   const equipped = await kvGet<Equipped>('equipped', {});
-  const ids = [equipped.token, equipped.enchant, equipped.totem]
-    .filter((x): x is string => typeof x === 'string');
-  const items = (await Promise.all(ids.map((i) => db.loot.get(i))))
+  const items = (await Promise.all(equippedIds(equipped).map((i) => db.loot.get(i))))
     .filter((x): x is LootItem => x !== undefined);
   return {
     level: ch.level,
@@ -284,22 +282,41 @@ export async function uncompleteInstance(id: string): Promise<void> {
   const completions = (await db.completions.where('date').equals(inst.date).toArray())
     .filter((c) => c.instanceId === id);
 
-  // Restore siege hp for a still-living boss (a kill stands).
+  // Reverse this quest's siege damage — unchecking must take back exactly what
+  // completing dealt, including un-killing the boss (no toggle-farming kills).
   const siege = await db.sieges.get(weekStartOf(inst.date));
-  if (siege !== undefined && !siege.killed && completions.length > 0) {
+  if (siege !== undefined && completions.length > 0) {
     let hp = siege.hp;
+    let overkill = siege.overkill;
     const log = [...siege.log];
-    for (const c of completions) {
-      const damage = round(c.xp * (c.crit ? 1.5 : 1));
+    for (const _c of completions) {
+      // Match by label alone: the logged amount is authoritative (perk
+      // multipliers may differ between deal time and now).
       for (let i = log.length - 1; i >= 0; i--) {
-        if (log[i].label === inst.name && log[i].amount === damage) {
+        if (log[i].label === inst.name) {
+          const amount = log[i].amount;
           log.splice(i, 1);
-          hp = Math.min(siege.maxHp, hp + damage);
+          // Part of this hit may have been overkill — only the portion that
+          // actually reduced hp comes back.
+          const overkillShare = Math.min(overkill, amount);
+          overkill -= overkillShare;
+          hp = Math.min(siege.maxHp, hp + (amount - overkillShare));
           break;
         }
       }
     }
-    await db.sieges.put({ ...siege, hp, log });
+    const next: SiegeState = { ...siege, hp, overkill, log };
+    if (siege.killed && hp > 0) {
+      // The kill is undone: revert its rewards too.
+      next.killed = false;
+      next.fragmentsAwarded = false;
+      const killEvents = (await db.xpEvents.toArray())
+        .filter((e) => e.source === 'siegeKill' && e.refId === siege.weekStart);
+      await db.xpEvents.bulkDelete(killEvents.map((e) => e.id));
+      const fragments = await kvGet<number>('fragments', 0);
+      await kvSet('fragments', Math.max(0, fragments - 1));
+    }
+    await db.sieges.put(next);
   }
 
   await db.completions.bulkDelete(completions.map((c) => c.id));
@@ -370,9 +387,7 @@ export async function recomputeDerived(): Promise<void> {
   }));
   const settings = await kvGet<{ adminKnightLevel?: number }>('settings', {});
   const equippedSlots = await kvGet<Equipped>('equipped', {});
-  const equippedIds = [equippedSlots.token, equippedSlots.enchant, equippedSlots.totem]
-    .filter((x): x is string => typeof x === 'string');
-  const equippedItems = (await Promise.all(equippedIds.map((i) => db.loot.get(i))))
+  const equippedItems = (await Promise.all(equippedIds(equippedSlots).map((i) => db.loot.get(i))))
     .filter((x): x is LootItem => x !== undefined);
   const ageLevel = settings.adminKnightLevel ?? level;
   const { state: streaks, emberSpentDates, body } = foldStreaks(outcomes, {
@@ -471,6 +486,54 @@ export async function recomputeDerived(): Promise<void> {
     return next;
   });
   await kvSet('achievements', refreshed);
+}
+
+/**
+ * Rebuild every siege's hp/log/killed state from the completions that actually
+ * exist (migration m2: undo toggle-farmed damage). Heals from sub-C sealed
+ * days are re-applied; kill rewards are reconciled (events + fragments).
+ */
+export async function rebuildSieges(): Promise<void> {
+  const perk = await perkContext();
+  const sieges = await db.sieges.toArray();
+  const completions = await db.completions.toArray();
+  const scores = (await db.dailyScores.toArray()).filter((d) => d.sealed);
+  let killedCount = 0;
+  for (const siege of sieges) {
+    const weekEnd = addDays(siege.weekStart, 6);
+    const week = completions
+      .filter((c) => c.date >= siege.weekStart && c.date <= weekEnd)
+      .sort((a, b) => (a.at < b.at ? -1 : 1));
+    const log: SiegeState['log'] = [];
+    let hp = Math.max(1, siege.maxHp - siege.carryover);
+    let overkill = 0;
+    for (const c of week) {
+      const inst = await db.instances.get(c.instanceId);
+      const dmg = round(c.xp * dmgMult(perk.ageLevel) * (c.crit ? critMult(perk.wil, perk.ageLevel) : 1));
+      log.push({ at: c.at, label: inst?.name ?? 'QUEST', amount: dmg, crit: c.crit });
+      overkill += Math.max(0, dmg - hp);
+      hp = Math.max(0, hp - dmg);
+    }
+    const heals = scores
+      .filter((d) => d.date >= siege.weekStart && d.date <= weekEnd && !rankAtLeast(d.rank, 'C')).length;
+    if (hp > 0) hp = Math.min(siege.maxHp, hp + heals * round(healPct(perk.ageLevel) * siege.maxHp));
+    const killed = hp === 0;
+    if (killed) killedCount += 1;
+    const killEvents = (await db.xpEvents.toArray())
+      .filter((e) => e.source === 'siegeKill' && e.refId === siege.weekStart);
+    if (killed && killEvents.length === 0 && week.length > 0) {
+      await db.xpEvents.add({
+        id: newId(), date: week[week.length - 1].date, at: week[week.length - 1].at,
+        amount: KILL_XP, source: 'siegeKill', refId: siege.weekStart,
+      });
+    }
+    if (!killed && killEvents.length > 0) {
+      await db.xpEvents.bulkDelete(killEvents.map((e) => e.id));
+    }
+    await db.sieges.put({ ...siege, hp, overkill, log, killed, fragmentsAwarded: killed });
+  }
+  const crests = (await kvGet<Unlock[]>('unlocks', [])).filter((u) => u.kind === 'crest').length;
+  await kvSet('fragments', Math.max(0, killedCount - crests * 3));
 }
 
 /**
