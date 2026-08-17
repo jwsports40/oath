@@ -12,9 +12,17 @@ const TIERS = ['common', 'rare', 'mythic'];
 async function grid(sheet, rowKeys, rowsY, rowH, cellW) {
   for (let r = 0; r < rowKeys.length; r++) {
     for (let c = 0; c < COLS.length; c++) {
-      await sharp(sheet)
+      // Trim the black surround so the medallion is perfectly centered,
+      // then place it on a square transparent canvas.
+      const extracted = await sharp(sheet)
         .extract({ left: COLS[c], top: rowsY[r], width: cellW, height: rowH })
-        .resize(160, 160, { kernel: 'nearest', fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .png().toBuffer();
+      const cell = await sharp(extracted)
+        .trim({ background: '#000000', threshold: 30 })
+        .toBuffer();
+      await sharp(cell)
+        .resize(150, 150, { kernel: 'nearest', fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+        .extend({ top: 5, bottom: 5, left: 5, right: 5, background: { r: 0, g: 0, b: 0, alpha: 0 } })
         .png({ compressionLevel: 9 })
         .toFile(`${OUT}/${rowKeys[r]}-${TIERS[c]}.png`);
     }

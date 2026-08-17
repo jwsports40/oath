@@ -3,7 +3,7 @@
 import type { CSSProperties } from 'react';
 import { CATALOG, CHEST_NAMES, type LootDef } from '../../game/loot';
 import type { ChestKind, LootTier } from '../../core/types';
-import { Panel, SectionLabel } from '../atoms';
+import { SectionLabel } from '../atoms';
 import { emblemUrl } from '../loot/emblems';
 import chestPng from '../loot/chest.png';
 
@@ -14,9 +14,7 @@ const TIER_COLOR: Record<LootTier, string> = {
 };
 
 const CHEST_ROWS: { kind: ChestKind; earned: string; odds: string }[] = [
-  { kind: 'wooden', earned: 'EVERY 7 DAYS OF OVERALL STREAK', odds: '70% TOKEN · 27% ENCHANT · 3% TOTEM' },
-  { kind: 'war', earned: 'DEFEAT THE WEEKLY BOSS', odds: '45% TOKEN · 45% ENCHANT · 10% TOTEM' },
-  { kind: 'gilded', earned: 'SLAY A RISEN BOSS · STREAK 30/60/100 · S-STREAK 7', odds: '20% TOKEN · 55% ENCHANT · 25% TOTEM' },
+  { kind: 'war', earned: 'DEFEAT THE WEEKLY BOSS · SLAY A RISEN BOSS · EVERY 7 DAYS OF STREAK · STREAK 30/60/100 · S-STREAK 7', odds: '45% TOKEN · 45% ENCHANT · 10% TOTEM' },
 ];
 
 function tierValue(def: LootDef, tier: LootTier): string {
@@ -57,12 +55,12 @@ export default function Codex({ onClose }: { onClose: () => void }) {
   return (
     <div
       style={{
-        position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(5,7,5,0.96)',
+        position: 'fixed', inset: 0, zIndex: 80, background: '#000',
         overflowY: 'auto', padding: 16, display: 'flex', justifyContent: 'center',
       }}
     >
-      <div style={{ width: '100%', maxWidth: 398 }}>
-        <Panel>
+      <div style={{ width: '100%', maxWidth: 398, background: '#000' }}>
+        <div>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
             <span style={{ fontFamily: 'var(--font-title)', fontSize: 30, color: 'var(--gild-bright)' }}>
               Codex
@@ -79,7 +77,7 @@ export default function Codex({ onClose }: { onClose: () => void }) {
             </button>
           </div>
 
-          <SectionLabel>CHESTS</SectionLabel>
+          <SectionLabel>THE CHEST</SectionLabel>
           {CHEST_ROWS.map((c) => (
             <div key={c.kind} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--hairline)' }}>
               <img src={chestPng} alt="" style={{ width: 40, height: 40, imageRendering: 'pixelated' }} />
@@ -91,7 +89,7 @@ export default function Codex({ onClose }: { onClose: () => void }) {
             </div>
           ))}
           <div style={{ ...bodyText, fontSize: 14, color: 'var(--text-faint)', margin: '4px 0 10px' }}>
-            TIER ROLL: 60/30/10 — GILDED: 40/40/20. TOTEMS ARE ALWAYS MYTHIC.
+            TIER ROLL: 60% COMMON · 30% RARE · 10% MYTHIC. TOTEMS ARE ALWAYS MYTHIC.
           </div>
 
           <SectionLabel>TOKENS — XP</SectionLabel>
@@ -115,7 +113,7 @@ export default function Codex({ onClose }: { onClose: () => void }) {
               </div>
             ))}
           </div>
-        </Panel>
+        </div>
       </div>
     </div>
   );

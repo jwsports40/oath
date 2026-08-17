@@ -43,22 +43,24 @@ export const CATALOG: LootDef[] = [
     desc: 'OVERKILL CARRIES +25% MORE INTO NEXT WEEK', value: 0.25 },
 ];
 
+// One chest to rule them all: every source drops the same "CHEST" with
+// uniform odds (the old kind field remains in storage for stable ids).
 export const CHEST_NAMES: Record<ChestKind, string> = {
-  wooden: 'WOODEN CHEST', war: 'WAR CHEST', gilded: 'GILDED CHEST',
+  wooden: 'CHEST', war: 'CHEST', gilded: 'CHEST',
 };
 
-/** Genre odds per chest kind: [token, enchant, totem]. */
+/** Genre odds — identical for every chest: [token, enchant, totem]. */
 const GENRE_ODDS: Record<ChestKind, [number, number, number]> = {
-  wooden: [0.70, 0.27, 0.03],
+  wooden: [0.45, 0.45, 0.10],
   war: [0.45, 0.45, 0.10],
-  gilded: [0.20, 0.55, 0.25],
+  gilded: [0.45, 0.45, 0.10],
 };
 
-/** Tier odds per chest kind: [common, rare, mythic]. */
+/** Tier odds — identical for every chest: [common, rare, mythic]. */
 const TIER_ODDS: Record<ChestKind, [number, number, number]> = {
   wooden: [0.60, 0.30, 0.10],
   war: [0.60, 0.30, 0.10],
-  gilded: [0.40, 0.40, 0.20],
+  gilded: [0.60, 0.30, 0.10],
 };
 
 function pickWeighted<T>(entries: [T, number][], roll: number): T {

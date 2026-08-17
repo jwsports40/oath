@@ -9,6 +9,7 @@ interface Tile {
   condition: string;
   unlocked: boolean;
   perk?: string;
+  ageLevel?: number;   // set on armor-age tiles — tap to wear that knight
 }
 
 /**
@@ -18,6 +19,8 @@ interface Tile {
  */
 export default function Armory() {
   const level = useOath((s) => s.ageLevel); // admin override wins
+  const settings = useOath((s) => s.settings);
+  const updateSettings = useOath((s) => s.updateSettings);
   const unlocks = useOath((s) => s.unlocks);
   const streaks = useOath((s) => s.streaks);
   const prs = useOath((s) => s.prs);
@@ -32,7 +35,15 @@ export default function Armory() {
     condition: `LV ${lv}`,
     unlocked: level >= lv,
     perk: perkByLevel.get(lv),
+    ageLevel: lv,
   }));
+
+  /** Tap a knight to wear it (admin: any knight, locked or not). Tap the worn one to revert. */
+  const wear = (lv: number): void => {
+    const worn = settings.adminKnightLevel;
+    void updateSettings(worn === lv ? { adminKnightLevel: undefined } : { adminKnightLevel: lv });
+  };
+  const wornLevel = AGE_PERKS.filter(([lv]) => lv <= level).map(([lv]) => lv).pop() ?? 1;
 
   // Cosmetic unlocks beyond the ages (spec §3): helms, capes, crests.
   tiles.push(
@@ -70,14 +81,22 @@ export default function Armory() {
         {tiles.map((t) => (
           <div
             key={t.key}
+            onClick={t.ageLevel !== undefined ? () => wear(t.ageLevel as number) : undefined}
             style={{
-              border: `1px solid ${t.unlocked ? 'var(--border)' : 'var(--hairline)'}`,
+              border: `1px solid ${t.ageLevel === wornLevel ? 'var(--gild)' : t.unlocked ? 'var(--border)' : 'var(--hairline)'}`,
               background: 'var(--panel)',
               padding: '8px 6px',
               textAlign: 'center',
               opacity: t.unlocked ? 1 : 0.55,
+              cursor: t.ageLevel !== undefined ? 'pointer' : 'default',
+              boxShadow: t.ageLevel === wornLevel ? '0 0 8px rgba(201,162,60,0.35)' : 'none',
             }}
           >
+            {t.ageLevel === wornLevel && (
+              <div style={{ fontFamily: 'var(--font-label)', fontSize: 6, letterSpacing: '0.2em', color: 'var(--gild)', marginBottom: 3 }}>
+                ◆ WORN ◆
+              </div>
+            )}
             <div
               style={{
                 fontFamily: 'var(--font-body)',
