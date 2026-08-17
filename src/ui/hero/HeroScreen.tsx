@@ -90,19 +90,20 @@ export default function HeroScreen() {
         <Icon name="gear" size={20} />
       </button>
 
-      <Panel>
+      {/* Knight stage: pure black, borderless — the card art blends straight in. */}
+      <div style={{ background: '#000', margin: '0 -8px', padding: '10px 0 8px' }}>
         <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <Knight pose="full" level={character.level} vigorBand={vigorBand} size={200} />
+          <Knight pose="full" level={character.level} vigorBand={vigorBand} size={330} />
         </div>
         <div
           style={{
             fontFamily: 'var(--font-label)', fontSize: 7, letterSpacing: '0.2em',
-            color: 'var(--text-mid)', textAlign: 'center', marginTop: 8,
+            color: 'var(--text-mid)', textAlign: 'center', marginTop: 10,
           }}
         >
           WORLD: {vigorBand} · VIGOR {vigor}
         </div>
-      </Panel>
+      </div>
 
       <div style={{ ...bodyText, fontSize: 24, color: 'var(--text-hi)', margin: '12px 0 8px', textAlign: 'center' }}>
         LV {character.level} — {character.title.toUpperCase()}

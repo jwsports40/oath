@@ -50,8 +50,8 @@ function CardKnight({ src, level, full, vigorBand, size }: {
       />
     );
   }
-  // Bust: window onto the card's head + torso (knight is centered, head ~30-40%).
-  const imgW = size * 2.1;
+  // Bust: tight helm portrait (helm sits ~28-44% down the card, centered).
+  const imgW = size * 2.8;
   const imgH = imgW * 1.85; // approximate card aspect
   return (
     <div
@@ -64,7 +64,7 @@ function CardKnight({ src, level, full, vigorBand, size }: {
         alt=""
         style={{
           position: 'absolute', width: imgW, height: 'auto',
-          left: -(imgW - size) / 2, top: -imgH * 0.27,
+          left: -(imgW - size) / 2, top: -imgH * 0.28,
           imageRendering: 'pixelated', filter,
         }}
       />
