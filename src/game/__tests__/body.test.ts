@@ -44,7 +44,7 @@ describe('perk helpers', () => {
   });
   it('maxHp from protein days, cap 100', () => {
     expect(maxHpFor(0)).toBe(20);
-    expect(maxHpFor(10)).toBe(40);
+    expect(maxHpFor(10)).toBe(30);
     expect(maxHpFor(200)).toBe(100);
   });
   it('all 11 ages have a name and perk line', () => {
@@ -62,8 +62,8 @@ describe('foldStreaks body integration', () => {
       day('F', 10, {}),                    // strike -10
     ];
     const { body } = foldStreaks(days, { level: 1 });
-    expect(body.maxHp).toBe(24);
-    expect(body.hp).toBe(14);
+    expect(body.maxHp).toBe(22);
+    expect(body.hp).toBe(12);
     expect(body.proteinDays).toBe(2);
     expect(body.wounded).toBe(false);
   });

@@ -52,7 +52,7 @@ export function strikeDamage(level: number): number { return has(level, 80) ? 8 
 export function regenAmount(level: number): number { return has(level, 90) ? 8 : 5; }
 
 export function maxHpFor(proteinDays: number): number {
-  return Math.min(100, 20 + 2 * proteinDays);
+  return Math.min(100, 20 + proteinDays); // +1 max HP per protein-goal day
 }
 
 export interface BodyState {
