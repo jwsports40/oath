@@ -16,7 +16,7 @@ import {
   carryFactor, critMult, dmgMult, healPct, maxHpFor, optionalCap, workoutXpMult,
 } from '../game/body';
 import { chestEntitlements, equippedIds, lootEffects, type LootEffects } from '../game/loot';
-import { NO_MODS, mergeMods, villainByKey, villainFor, type StatusMods } from '../game/villains';
+import { NO_MODS, VILLAINS, mergeMods, villainByKey, villainFor, type StatusMods } from '../game/villains';
 import type { DayStatus } from '../game/streaks';
 import { ARMOR_AGES, DIFFICULTY, TITLES } from '../core/types';
 import { DEFAULT_NUTRITION_GOAL } from './seed';
@@ -703,6 +703,29 @@ async function scaleSiegeToKnight(siege: SiegeState, villainKey: string): Promis
   const playerMax = maxHpFor(body.proteinDays);
   siege.strikeDmg = Math.max(1, Math.ceil(playerMax / (finalBoss ? 4 : 5)));
   siege.sigDmg = Math.round(siege.strikeDmg * 1.5);
+}
+
+/**
+ * Swap this week's boss for the OTHER villain of its band — a brand-new fight
+ * at full knight-scaled HP (generation 0, empty log). Used by migration m3.
+ */
+export async function rerollCurrentBoss(today: string): Promise<void> {
+  const weekStart = weekStartOf(today);
+  const existing = await db.sieges.get(weekStart);
+  const perk = await perkContext();
+  const current = (existing?.villainKey !== undefined ? villainByKey(existing.villainKey) : undefined)
+    ?? villainFor(perk.ageLevel, weekStart);
+  const pair = VILLAINS.filter((v) => v.band === current.band);
+  const villain = pair.find((v) => v.key !== current.key) ?? current;
+  const siege = newSiege(
+    weekStart, await weekAvailableXp(weekStart), undefined,
+    carryFactor(perk.ageLevel) + perk.fx.carryBonus,
+  );
+  siege.villainKey = villain.key;
+  siege.name = villain.name;
+  await scaleSiegeToKnight(siege, villain.key);
+  await db.sieges.put(siege);
+  await recomputeDerived();
 }
 
 export async function ensureSiege(today: string): Promise<SiegeState> {

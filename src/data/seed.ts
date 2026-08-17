@@ -68,6 +68,13 @@ async function runMigrations(): Promise<void> {
     await rebuildSieges();
     await kvSet('migr-siege-rebuild-1', true);
   }
+  // m3: immediate boss change (user request 2026-08-16) — swap this week's
+  // boss for its band partner, fresh at full knight-scaled HP.
+  if (!(await kvGet('migr-boss-reroll-1', false))) {
+    const { rerollCurrentBoss } = await import('./lifecycle');
+    await rerollCurrentBoss(dayKey(new Date()));
+    await kvSet('migr-boss-reroll-1', true);
+  }
 }
 
 export async function seedIfEmpty(): Promise<void> {
