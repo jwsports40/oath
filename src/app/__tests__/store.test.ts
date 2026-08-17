@@ -41,7 +41,6 @@ describe('OathStore', () => {
     const names = s.instances.map((i) => i.name);
     expect(names).toContain('MORNING ROUTINE');
     expect(names).toContain('WATER');
-    expect(names).toContain('WALK');
     expect(s.siege).not.toBeNull();
     expect(s.character.level).toBe(1);
     expect(s.character.title).toBe('ROOKIE KNIGHT');
@@ -53,9 +52,6 @@ describe('OathStore', () => {
     expect(s.vigor).toBe(50);
     expect(s.vigorBand).toBe('EMBER CAMP');
     expect(s.effects).toHaveLength(0);
-    // sorted: required before optional
-    const walkIdx = names.indexOf('WALK');
-    expect(walkIdx).toBe(names.length - 1);
   });
 
   it('all 5 tabs switch through the store', () => {

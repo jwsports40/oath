@@ -59,23 +59,13 @@ export default function QuestsScreen() {
   const templates = useOath((s) => s.templates);
   const categories = useOath((s) => s.categories);
   const perQuestStreaks = useOath((s) => s.perQuestStreaks);
-  const addCategory = useOath((s) => s.addCategory);
 
   const [filter, setFilter] = useState<string>('all');
-  const [addingRune, setAddingRune] = useState(false);
-  const [runeName, setRuneName] = useState('');
   const [editor, setEditor] = useState<{ open: boolean; template: QuestTemplate | null }>({
     open: false, template: null,
   });
 
   const weeklyDone = useWeeklyDone(templates, today);
-
-  const submitRune = async (): Promise<void> => {
-    const name = runeName.trim().toUpperCase();
-    setAddingRune(false);
-    setRuneName('');
-    if (name !== '' && !categories.some((c) => c.name === name)) await addCategory(name);
-  };
 
   const shown = templates
     .filter((t) => filter === 'all' || t.categoryId === filter)
@@ -105,25 +95,6 @@ export default function QuestsScreen() {
             {c.name}
           </button>
         ))}
-        {addingRune ? (
-          <input
-            autoFocus
-            style={{
-              fontFamily: 'var(--font-body)', fontSize: 18, color: 'var(--text-hi)',
-              background: 'var(--bg-deep)', border: '1px solid var(--neon)',
-              padding: '4px 8px', width: 110, outline: 'none', flexShrink: 0,
-            }}
-            placeholder="RUNE NAME"
-            value={runeName}
-            onChange={(e) => setRuneName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') void submitRune(); }}
-            onBlur={() => { void submitRune(); }}
-          />
-        ) : (
-          <button type="button" style={chipStyle(false)} onClick={() => setAddingRune(true)}>
-            + RUNE
-          </button>
-        )}
       </div>
 
       <SectionLabel>Sworn Quests</SectionLabel>

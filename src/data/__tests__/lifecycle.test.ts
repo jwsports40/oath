@@ -33,18 +33,16 @@ describe('ensureDay generation + completion + sealing narrative', () => {
   it('materializes Monday instances and is idempotent', async () => {
     await ensureDay('2026-08-17');
     let instances = await db.instances.where('date').equals('2026-08-17').toArray();
-    expect(instances.map((i) => i.name).sort()).toEqual(['GYM', 'MORNING ROUTINE', 'WALK', 'WATER']);
+    expect(instances.map((i) => i.name).sort()).toEqual(['GYM', 'MORNING ROUTINE', 'WATER']);
     const gym = instances.find((i) => i.name === 'GYM')!;
     expect(gym.main).toBe(true);
     expect(gym.optional).toBe(false);
-    const walk = instances.find((i) => i.name === 'WALK')!;
-    expect(walk.optional).toBe(true);
     const water = instances.find((i) => i.name === 'WATER')!;
     expect(water.target).toBe(128);
 
     await ensureDay('2026-08-17'); // idempotent
     instances = await db.instances.where('date').equals('2026-08-17').toArray();
-    expect(instances).toHaveLength(4);
+    expect(instances).toHaveLength(3);
   });
 
   it('creates the weekly siege from available XP', async () => {
@@ -109,15 +107,13 @@ describe('ensureDay generation + completion + sealing narrative', () => {
 
     const routine17 = await instanceByName('2026-08-17', 'MORNING ROUTINE');
     expect(routine17.status).toBe('failed');
-    const walk17 = await instanceByName('2026-08-17', 'WALK');
-    expect(walk17.status).toBe('todo'); // optional — never failed
 
     // Tuesday has no GYM (MWF)
     const tue = await db.instances.where('date').equals('2026-08-18').toArray();
-    expect(tue.map((i) => i.name).sort()).toEqual(['MORNING ROUTINE', 'WALK', 'WATER']);
+    expect(tue.map((i) => i.name).sort()).toEqual(['MORNING ROUTINE', 'WATER']);
     // Wednesday materialized
     const wed = await db.instances.where('date').equals('2026-08-19').toArray();
-    expect(wed.map((i) => i.name).sort()).toEqual(['GYM', 'MORNING ROUTINE', 'WALK', 'WATER']);
+    expect(wed.map((i) => i.name).sort()).toEqual(['GYM', 'MORNING ROUTINE', 'WATER']);
 
     // derived state refolded: A then F with no embers
     const streaks = await kvGet<{ overall: number; overallBest: number } | null>('streaks', null);

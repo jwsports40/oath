@@ -13,9 +13,9 @@ describe('seedIfEmpty', () => {
     expect(categories.every((c) => c.builtin)).toBe(true);
 
     const templates = await db.templates.toArray();
-    expect(templates).toHaveLength(4);
+    expect(templates).toHaveLength(3);
     const names = templates.map((t) => t.name).sort();
-    expect(names).toEqual(['GYM', 'MORNING ROUTINE', 'WALK', 'WATER']);
+    expect(names).toEqual(['GYM', 'MORNING ROUTINE', 'WATER']);
 
     const water = templates.find((t) => t.name === 'WATER')!;
     expect(water.kind).toBe('quantity');
@@ -36,11 +36,6 @@ describe('seedIfEmpty', () => {
     expect(routine.difficulty).toBe('easy');
     expect(routine.kind).toBe('binary');
     expect(routine.recurrence).toEqual({ type: 'everyDay' });
-
-    const walk = templates.find((t) => t.name === 'WALK')!;
-    expect(walk.difficulty).toBe('easy');
-    expect(walk.optional).toBe(true);
-    expect(walk.recurrence).toEqual({ type: 'everyDay' });
 
     const exercises = await db.exercises.toArray();
     expect(exercises.map((e) => e.name).sort()).toEqual([
@@ -79,7 +74,7 @@ describe('seedIfEmpty', () => {
     // idempotent: run again, counts unchanged
     await seedIfEmpty();
     expect(await db.categories.count()).toBe(5);
-    expect(await db.templates.count()).toBe(4);
+    expect(await db.templates.count()).toBe(3);
     expect(await db.exercises.count()).toBe(6);
   });
 

@@ -1,5 +1,5 @@
 // data/seed.ts — first-run seed: built-in categories, defaults, starter quests.
-import { db, kvSet } from './db';
+import { db, kvGet, kvSet } from './db';
 import { newId } from '../core/ids';
 import { dayKey } from '../core/dates';
 import { INITIAL_VIGOR } from '../game/vigor';
@@ -46,8 +46,25 @@ const ACHIEVEMENTS: Achievement[] = [
 
 const STARTER_EXERCISES = ['Bench Press', 'Squat', 'Deadlift', 'Overhead Press', 'Barbell Row', 'Pull-Up'];
 
+/** One-time data migrations for existing saves (idempotent, kv-flagged). */
+async function runMigrations(): Promise<void> {
+  // m1: optional quests removed from the default experience — retire the
+  // seeded WALK quest and its unactioned instances (history stays intact).
+  if (!(await kvGet('migr-no-optional', false))) {
+    const walk = (await db.templates.toArray())
+      .find((t) => t.name === 'WALK' && t.optional && t.archivedAt === undefined);
+    if (walk !== undefined) {
+      await db.templates.put({ ...walk, archivedAt: new Date().toISOString() });
+      const open = (await db.instances.where('templateId').equals(walk.id).toArray())
+        .filter((i) => i.status === 'todo');
+      for (const i of open) await db.instances.delete(i.id);
+    }
+    await kvSet('migr-no-optional', true);
+  }
+}
+
 export async function seedIfEmpty(): Promise<void> {
-  if ((await db.categories.count()) > 0) return;
+  if ((await db.categories.count()) > 0) { await runMigrations(); return; }
 
   const categories: Category[] = BUILTIN_CATEGORIES.map((name) => ({ id: newId(), name, builtin: true }));
   const catId = (name: string): string => categories.find((c) => c.name === name)!.id;
@@ -68,11 +85,6 @@ export async function seedIfEmpty(): Promise<void> {
       id: newId(), name: 'GYM', categoryId: catId('BODY'), difficulty: 'hard',
       kind: 'workout', main: true, optional: false,
       recurrence: { type: 'daysOfWeek', days: [1, 3, 5] }, reminders: [], createdAt,
-    },
-    {
-      id: newId(), name: 'WALK', categoryId: catId('BODY'), difficulty: 'easy',
-      kind: 'binary', main: false, optional: true, recurrence: { type: 'everyDay' },
-      reminders: [], createdAt,
     },
   ];
 
