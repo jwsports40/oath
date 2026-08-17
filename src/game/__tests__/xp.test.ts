@@ -39,12 +39,12 @@ describe('levelForXp', () => {
 
 describe('titleForLevel', () => {
   it('returns highest title threshold ≤ level', () => {
-    expect(titleForLevel(30)).toBe('Knight');
+    expect(titleForLevel(30)).toBe('ELITE KNIGHT');
   });
 });
 
 describe('armorAgeForLevel', () => {
   it('returns highest armor age band ≤ level', () => {
-    expect(armorAgeForLevel(47)[1]).toBe('VETERAN');
+    expect(armorAgeForLevel(47)[1]).toBe('DUNGEON KNIGHT');
   });
 });

@@ -46,14 +46,19 @@ function hashStr(s: string): number {
  * - Survived boss: returns as '<name> RISEN' at generation+1 with
  *   maxHp = round50(8 * weekAvailableXp * 1.05^generation). No carryover.
  */
-export function newSiege(weekStart: string, weekAvailableXp: number, prev?: SiegeState): SiegeState {
+export function newSiege(
+  weekStart: string,
+  weekAvailableXp: number,
+  prev?: SiegeState,
+  carryFactorPct = 0.25,
+): SiegeState {
   const returning = prev !== undefined && !prev.killed;
   const generation = returning ? prev.generation + 1 : 0;
   const maxHp = round50(8 * weekAvailableXp * Math.pow(1.05, generation));
   const name = returning
     ? prev.name + ' RISEN'
     : BOSS_NAMES[hashStr(weekStart) % BOSS_NAMES.length];
-  const carryover = prev !== undefined && prev.killed ? round(0.25 * Math.max(0, prev.overkill)) : 0;
+  const carryover = prev !== undefined && prev.killed ? round(carryFactorPct * Math.max(0, prev.overkill)) : 0;
   const hp = Math.max(1, maxHp - carryover);
   return {
     weekStart,
@@ -80,8 +85,9 @@ export function dealDamage(
   isMain: boolean,
   label: string,
   at: string,
+  mults: { crit?: number; dmg?: number } = {},
 ): SiegeState {
-  const damage = round(xp * (isMain ? 1.5 : 1));
+  const damage = round(xp * (mults.dmg ?? 1) * (isMain ? (mults.crit ?? 1.5) : 1));
   const excess = Math.max(0, damage - s.hp);
   const hp = Math.max(0, s.hp - damage);
   return {
@@ -94,7 +100,7 @@ export function dealDamage(
 }
 
 /** Boss heals round(1.5% of maxHp), capped at maxHp; no effect once killed. */
-export function bossHeal(s: SiegeState): SiegeState {
+export function bossHeal(s: SiegeState, pct = 0.015): SiegeState {
   if (s.killed) return s;
-  return { ...s, hp: Math.min(s.maxHp, s.hp + round(0.015 * s.maxHp)) };
+  return { ...s, hp: Math.min(s.maxHp, s.hp + round(pct * s.maxHp)) };
 }

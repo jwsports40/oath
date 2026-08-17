@@ -16,7 +16,7 @@ describe('TodayScreen', () => {
     expect(html).toContain('DAILY QUESTS 0/0');
     expect(html).toContain('THE LEDGER IS EMPTY.');
     expect(html).toContain('RANK ');            // footer band
-    expect(html).toContain('LV 1 WANDERER');    // knight bust panel
+    expect(html).toContain('LV 1 ROOKIE KNIGHT');    // knight bust panel
     expect(html).not.toContain('MAIN QUEST');   // no main instance in empty state
     expect(html).not.toContain('SIEGE —');      // no siege in empty state
   });

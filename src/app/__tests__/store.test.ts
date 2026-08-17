@@ -44,8 +44,8 @@ describe('OathStore', () => {
     expect(names).toContain('WALK');
     expect(s.siege).not.toBeNull();
     expect(s.character.level).toBe(1);
-    expect(s.character.title).toBe('Wanderer');
-    expect(s.character.armorAge[1]).toBe('WANDERER');
+    expect(s.character.title).toBe('ROOKIE KNIGHT');
+    expect(s.character.armorAge[1]).toBe('ROOKIE KNIGHT');
     expect(s.character.next).toBe(40);
     expect(s.achievements).toHaveLength(9);
     expect(s.week).toHaveLength(7);
@@ -174,7 +174,7 @@ describe('OathStore', () => {
     });
     await useOath.getState().refresh();
     s = useOath.getState();
-    expect(s.character.wil).toBe(13); // 10 + 3 (S day)
+    expect(s.character.wil).toBe(11); // 10 + 1 S-rank day (statboard design)
     expect(s.character.vit).toBe(11); // 10 + overallBest 1
     expect(s.streaks.overallBest).toBe(1);
     expect(s.dailyScores['2000-01-05']).toBeDefined();

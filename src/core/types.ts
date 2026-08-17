@@ -49,7 +49,7 @@ export interface NutritionGoal { calories:number; protein:number; carbs:number; 
 export interface FoodEntry { food:string; quantity:number; unit:string; calories:number; protein_g:number; carbs_g:number; fat_g:number; confidence:number; corrected:boolean; assumptions?:string[]; }
 export interface Meal { id:string; date:string; at:string; entries:FoodEntry[]; utterance?:string; status:'done'|'estimating'|'pending'|'needs_review'; }
 export interface HydrationEntry { id:string; date:string; at:string; oz:number; }
-export interface Character { level:number; xpTotal:number; str:number; vit:number; wil:number; }
+export interface Character { level:number; xpTotal:number; str:number; vit:number; wil:number; stam?:number; }
 export interface Unlock { id:string; kind:'armorAge'|'helm'|'cape'|'crest'|'title'|'environment'; name:string; unlockedAt:string; }
 export interface Achievement { id:string; name:string; desc:string; target:number; progress:number; unlockedAt?:string; }
 export interface UserSettings {
@@ -63,10 +63,12 @@ export interface UserSettings {
 export interface WorldState { vigor:number; }      // bands derived
 export const VIGOR_BANDS:[number,string][]= [[90,'BEACON'],[75,'STRONGHOLD'],[60,'CAMP'],[40,'EMBER CAMP'],[0,'RUINS']];
 export const ARMOR_AGES:[number,string,string][] = [
-  [1,'WANDERER','roughspun cloak, walking staff'],[10,'SWORN','gambeson, iron cap, buckler'],
-  [20,'CRUSADER','mail + surcoat, red cross, kite shield'],[30,'SERGEANT','riveted plate, heater shield'],
-  [40,'VETERAN','battle-notched plate, greatsword'],[50,'WARDEN','cape, gold trim, gold sigil'],
-  [60,'CHAMPION','gilt greaves, halo sigil'],[70,'BANNERET','war banner, gold cross'],
-  [80,'SENTINEL','blackened plate, ember visor, dark mantle'],[90,'PALADIN','rune-etched plate, ember cross'],
-  [100,'LEGEND','hooded black requiem plate — the oath kept']];
-export const TITLES:[number,string][] = [[100,'Legend'],[50,'Warden'],[25,'Knight'],[10,'Oathbound'],[1,'Wanderer']];
+  [1,'ROOKIE KNIGHT','roughspun cloak, walking staff'],[10,'TRAINED KNIGHT','gambeson, iron cap, buckler'],
+  [20,'VETERAN KNIGHT','mail + surcoat, red cross, kite shield'],[30,'ELITE KNIGHT','riveted plate, heater shield'],
+  [40,'DUNGEON KNIGHT','battle-notched plate, greatsword'],[50,'DUNGEON SLAYER','cape, gold trim, gold sigil'],
+  [60,'ABYSS KNIGHT','gilt greaves, halo sigil'],[70,'ABYSS SLAYER','war banner, gold cross'],
+  [80,'LEGENDARY DUNGEON SLAYER','blackened plate, ember visor, dark mantle'],
+  [90,'MYTHIC DUNGEON SLAYER','rune-etched plate, ember cross'],
+  [100,'ULTIMATE DUNGEON SLAYER','hooded black requiem plate — the oath kept']];
+// One identity per knight: the armor-age name IS the title (old TITLES ladder retired).
+export const TITLES:[number,string][] = ARMOR_AGES.map(([lv, name]) => [lv, name] as [number, string]).reverse();

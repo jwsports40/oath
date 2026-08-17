@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useOath } from '../../app/store';
-import { ARMOR_AGES, TITLES } from '../../core/types';
+import { ARMOR_AGES } from '../../core/types';
 import { Icon, PageFrame, Panel, SectionLabel, SegmentedBar } from '../atoms';
 import Knight from '../knight/Knight';
 import Armory from './Armory';
@@ -15,20 +15,14 @@ const bodyText: CSSProperties = { fontFamily: 'var(--font-body)', fontSize: 18 }
  * else the raw XP remaining to the next level.
  */
 function nextLine(level: number, into: number, next: number): string {
-  const candidates: { lv: number; name: string }[] = [];
   const age = ARMOR_AGES.find(([lv]) => lv > level);
-  if (age !== undefined) candidates.push({ lv: age[0], name: `${age[1]} ARMOR` });
-  const title = TITLES.filter(([lv]) => lv > level).sort((a, b) => a[0] - b[0])[0];
-  if (title !== undefined) candidates.push({ lv: title[0], name: title[1].toUpperCase() });
-  candidates.sort((a, b) => a.lv - b.lv);
-  const soon = candidates[0];
-  if (soon !== undefined && soon.lv - level <= 10) {
-    return `NEXT: LV ${soon.lv} — ${soon.name}`;
+  if (age !== undefined && age[0] - level <= 10) {
+    return `NEXT: LV ${age[0]} — ${age[1]}`;
   }
   return `NEXT: LV ${level + 1} — +${(next - into).toLocaleString()} XP`;
 }
 
-function StatTile({ label, value }: { label: string; value: number }) {
+function StatTile({ label, value, sub, ember = false }: { label: string; value: number | string; sub?: string; ember?: boolean }) {
   return (
     <div
       style={{
@@ -42,9 +36,12 @@ function StatTile({ label, value }: { label: string; value: number }) {
       <div style={{ fontFamily: 'var(--font-label)', fontSize: 7, letterSpacing: '0.2em', color: 'var(--text-faint)' }}>
         {label}
       </div>
-      <div style={{ ...bodyText, fontSize: 26, color: 'var(--neon)', textShadow: '0 0 6px rgba(70,255,125,0.45)' }}>
+      <div style={{ ...bodyText, fontSize: 22, color: ember ? 'var(--ember)' : 'var(--neon)', textShadow: ember ? '0 0 6px rgba(226,91,74,0.45)' : '0 0 6px rgba(70,255,125,0.45)' }}>
         {value}
       </div>
+      {sub !== undefined && (
+        <div style={{ ...bodyText, fontSize: 13, color: 'var(--text-faint)' }}>{sub}</div>
+      )}
     </div>
   );
 }
@@ -63,6 +60,7 @@ function StreakRow({ label, current, best }: { label: string; current: number; b
 /** HERO tab (spec §4): knight stage, stats, armory, campaign calendar, deeds, streaks. */
 export default function HeroScreen() {
   const character = useOath((s) => s.character);
+  const body = useOath((s) => s.body);
   const vigor = useOath((s) => s.vigor);
   const vigorBand = useOath((s) => s.vigorBand);
   const streaks = useOath((s) => s.streaks);
@@ -103,6 +101,22 @@ export default function HeroScreen() {
         >
           WORLD: {vigorBand} · VIGOR {vigor}
         </div>
+        {/* HP — protein armor against the boss's strikes */}
+        <div style={{ padding: '8px 16px 2px' }}>
+          <div style={{ height: 8, background: 'var(--bg-deep)', border: '1px solid var(--hairline)' }}>
+            <div
+              style={{
+                height: '100%', width: `${Math.round((body.hp / body.maxHp) * 100)}%`,
+                background: 'var(--ember)', boxShadow: '0 0 6px rgba(226,91,74,0.5)',
+                transition: 'width 300ms',
+              }}
+            />
+          </div>
+          <div style={{ ...bodyText, fontSize: 16, color: 'var(--text-mid)', display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
+            <span>HP {body.hp} / {body.maxHp}</span>
+            {body.wounded && <span style={{ color: 'var(--ember)' }}>WOUNDED</span>}
+          </div>
+        </div>
       </div>
 
       <div style={{ ...bodyText, fontSize: 24, color: 'var(--text-hi)', margin: '12px 0 8px', textAlign: 'center' }}>
@@ -110,9 +124,10 @@ export default function HeroScreen() {
       </div>
 
       <div style={{ display: 'flex', gap: 8 }}>
-        <StatTile label="STR" value={character.str} />
-        <StatTile label="VIT" value={character.vit} />
-        <StatTile label="WIL" value={character.wil} />
+        <StatTile label="STR" value={character.str} sub={`${character.str - 10} SESSIONS`} />
+        <StatTile label="HP" value={`${body.hp}/${body.maxHp}`} ember sub={`${body.proteinDays} PROTEIN DAYS`} />
+        <StatTile label="WIL" value={character.wil} sub={`${body.sRankDays} S-DAYS`} />
+        <StatTile label="STAM" value={character.stam ?? 10} sub={`${body.waterDays} WATER DAYS`} />
       </div>
 
       <div style={{ marginTop: 12 }}>

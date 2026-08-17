@@ -18,6 +18,7 @@ import { newId } from '../core/ids';
 import { dayScore, dayRank, toScoreable } from '../game/scoring';
 import { armorAgeForLevel, levelForXp, titleForLevel } from '../game/xp';
 import { perQuestStreak } from '../game/streaks';
+import type { BodyState } from '../game/body';
 import { INITIAL_VIGOR, vigorBand as bandOf } from '../game/vigor';
 import { scheduleNotifications } from './notify';
 import { resolveBridgeUrl } from '../ai/nutrition';
@@ -45,6 +46,7 @@ export interface OathStore {
   character: Character & { title: string; armorAge: [number, string, string]; into: number; next: number };
   live: { score: number; rank: Rank; pct: number };     // today, live
   streaks: StreakState;
+  body: BodyState;
   perQuestStreaks: Record<string, number>;          // templateId → streak
   vigor: number; vigorBand: string;
   siege: SiegeState | null;
@@ -251,6 +253,7 @@ export const useOath = create<OathStore>()((set, get) => {
     },
     live: { score: 0, rank: 'F', pct: 0 },
     streaks: INITIAL_STREAKS,
+    body: { hp: 20, maxHp: 20, wounded: false, proteinDays: 0, waterDays: 0, sRankDays: 0, emberSteals: 0 },
     perQuestStreaks: {},
     vigor: INITIAL_VIGOR,
     vigorBand: bandOf(INITIAL_VIGOR),
@@ -552,6 +555,7 @@ export const useOath = create<OathStore>()((set, get) => {
       };
 
       const streaks = await kvGet<StreakState>('streaks', INITIAL_STREAKS);
+      const body = await kvGet<BodyState>('body', { hp: 20, maxHp: 20, wounded: false, proteinDays: 0, waterDays: 0, sRankDays: 0, emberSteals: 0 });
       const vigor = await kvGet<number>('vigor', INITIAL_VIGOR);
 
       const completions = await db.completions.toArray();
@@ -601,7 +605,7 @@ export const useOath = create<OathStore>()((set, get) => {
       set({
         instances, templates, categories, character,
         live: { score, rank, pct: score },
-        streaks, perQuestStreaks, vigor, vigorBand: bandOf(vigor), siege, week,
+        streaks, body, perQuestStreaks, vigor, vigorBand: bandOf(vigor), siege, week,
         goals, meals, macros, hydrationOz, dailyScores,
         programs, exercises, sessions, prs, achievements, unlocks, settings, aiQueueSize,
       });

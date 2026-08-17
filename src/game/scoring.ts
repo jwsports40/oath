@@ -36,7 +36,7 @@ export function credit(i: {
  * base = 100·Σ(wᵢcᵢ)/Σ(wᵢ) over required items (base 100 if none);
  * bonus = min(5, Σ over optionals of w·c·0.5); total capped at 100.
  */
-export function dayScore(items: Scoreable[]): number {
+export function dayScore(items: Scoreable[], optCap = 5): number {
   const required = items.filter((i) => !i.optional);
   const totalWeight = required.reduce((sum, i) => sum + i.weight, 0);
   const base =
@@ -44,7 +44,7 @@ export function dayScore(items: Scoreable[]): number {
       ? 100
       : (100 * required.reduce((sum, i) => sum + i.weight * i.credit, 0)) / totalWeight;
   const bonus = Math.min(
-    5,
+    optCap,
     items.filter((i) => i.optional).reduce((sum, i) => sum + i.weight * i.credit * 0.5, 0),
   );
   return roundHalfUp(Math.min(100, base + bonus));

@@ -1,12 +1,14 @@
 import { useOath } from '../../app/store';
 import { SectionLabel } from '../atoms';
 import { ARMOR_AGES } from '../../core/types';
+import { AGE_PERKS } from '../../game/body';
 
 interface Tile {
   key: string;
   name: string;
   condition: string;
   unlocked: boolean;
+  perk?: string;
 }
 
 /**
@@ -23,11 +25,13 @@ export default function Armory() {
   const hasUnlock = (kind: string, name?: string): boolean =>
     unlocks.some((u) => u.kind === kind && (name === undefined || u.name === name));
 
+  const perkByLevel = new Map(AGE_PERKS.map(([lv, , perk]) => [lv, perk]));
   const tiles: Tile[] = ARMOR_AGES.map(([lv, name]) => ({
     key: `age-${lv}`,
     name,
     condition: `LV ${lv}`,
     unlocked: level >= lv,
+    perk: perkByLevel.get(lv),
   }));
 
   // Cosmetic unlocks beyond the ages (spec §3): helms, capes, crests.
@@ -96,6 +100,16 @@ export default function Armory() {
             >
               {t.unlocked ? 'UNLOCKED' : t.condition}
             </div>
+            {t.perk !== undefined && t.perk !== '—' && (
+              <div
+                style={{
+                  fontFamily: 'var(--font-body)', fontSize: 13, marginTop: 3,
+                  color: t.unlocked ? 'var(--gild)' : 'var(--text-faint)',
+                }}
+              >
+                {t.perk}
+              </div>
+            )}
           </div>
         ))}
       </div>

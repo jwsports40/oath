@@ -157,7 +157,7 @@ describe('recomputeDerived — levels and unlocks from the event log', () => {
     expect(char!.level).toBe(2);
   });
 
-  it('reaching level 10 unlocks the SWORN age and Oathbound title', async () => {
+  it('reaching level 10 unlocks the TRAINED KNIGHT age', async () => {
     await db.xpEvents.add({
       id: 'xp-2', date: '2026-08-17', at: '2026-08-17T09:00:00.000Z', amount: 4410, source: 'bonus',
     });
@@ -165,8 +165,8 @@ describe('recomputeDerived — levels and unlocks from the event log', () => {
     const char = await kvGet<Character | null>('character', null);
     expect(char!.level).toBe(10); // Σ cost(1..9) = 4450
     const unlocks = await kvGet<Unlock[]>('unlocks', []);
-    expect(unlocks.some((u) => u.kind === 'armorAge' && u.name === 'SWORN')).toBe(true);
-    expect(unlocks.some((u) => u.kind === 'title' && u.name === 'Oathbound')).toBe(true);
+    expect(unlocks.some((u) => u.kind === 'armorAge' && u.name === 'TRAINED KNIGHT')).toBe(true);
+    expect(unlocks.some((u) => u.kind === 'title' && u.name === 'TRAINED KNIGHT')).toBe(true);
   });
 });
 

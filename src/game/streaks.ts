@@ -8,8 +8,14 @@
 //   1 ember (max held 2). An ember-burned day resets cPlusRun (the day itself was
 //   sub-C) but not overall.
 import type { Rank, StreakState } from '../core/types';
+import {
+  emberCapacity, maxHpFor, regenAmount, strikeDamage, type BodyState,
+} from './body';
 
-export interface DayOutcome { date: string; rank: Rank; score: number; }
+export interface DayOutcome {
+  date: string; rank: Rank; score: number;
+  proteinOk?: boolean; waterOk?: boolean;
+}
 
 export const RANK_ORDER: Rank[] = ['F', 'D', 'C', 'B', 'A', 'S', 'S+'];
 
@@ -17,7 +23,10 @@ export function rankAtLeast(r: Rank, min: Rank): boolean {
   return RANK_ORDER.indexOf(r) >= RANK_ORDER.indexOf(min);
 }
 
-export function foldStreaks(days: DayOutcome[]): { state: StreakState; emberSpentDates: string[] } {
+export function foldStreaks(
+  days: DayOutcome[],
+  opts: { level: number } = { level: 1 },
+): { state: StreakState; emberSpentDates: string[]; body: BodyState } {
   const state: StreakState = {
     overall: 0, overallBest: 0,
     perfect: 0, perfectBest: 0,
@@ -25,21 +34,48 @@ export function foldStreaks(days: DayOutcome[]): { state: StreakState; emberSpen
     embers: 0, cPlusRun: 0,
   };
   const emberSpentDates: string[] = [];
+  const capacity = emberCapacity(opts.level);
+  const body: BodyState = {
+    hp: maxHpFor(0), maxHp: maxHpFor(0), wounded: false,
+    proteinDays: 0, waterDays: 0, sRankDays: 0, emberSteals: 0,
+  };
 
   for (const day of days) {
+    // Body accounting first: nutrition grows the pool, then the day resolves.
+    if (day.proteinOk === true) {
+      body.proteinDays += 1;
+      body.maxHp = maxHpFor(body.proteinDays);
+    }
+    if (day.waterOk === true) body.waterDays += 1;
+    if (rankAtLeast(day.rank, 'S')) body.sRankDays += 1;
+
     if (rankAtLeast(day.rank, 'C')) {
+      body.hp = Math.min(body.maxHp, body.hp + regenAmount(opts.level));
       state.overall += 1;
       state.cPlusRun += 1;
-      if (state.cPlusRun % 7 === 0 && state.embers < 2) state.embers += 1;
-    } else if (state.embers > 0) {
-      // Auto-burn an ember to preserve the overall streak.
-      state.embers -= 1;
-      emberSpentDates.push(day.date);
-      state.overall += 1;
-      state.cPlusRun = 0; // the day itself was sub-C
+      if (state.cPlusRun % 7 === 0 && state.embers < capacity) state.embers += 1;
     } else {
-      state.overall = 0;
-      state.cPlusRun = 0;
+      // The boss strikes FIRST. If it drops you to 0 and an ember is banked,
+      // it steals that ember before the streak-save can use it.
+      body.hp -= strikeDamage(opts.level);
+      if (body.hp <= 0) {
+        if (state.embers > 0) {
+          state.embers -= 1;
+          body.emberSteals += 1;
+          body.hp = Math.ceil(body.maxHp / 2);
+        } else {
+          body.hp = 0;
+        }
+      }
+      if (state.embers > 0) {
+        // Auto-burn an ember to preserve the overall streak.
+        state.embers -= 1;
+        emberSpentDates.push(day.date);
+        state.overall += 1;
+      } else {
+        state.overall = 0;
+      }
+      state.cPlusRun = 0; // the day itself was sub-C
     }
     state.overallBest = Math.max(state.overallBest, state.overall);
 
@@ -50,7 +86,8 @@ export function foldStreaks(days: DayOutcome[]): { state: StreakState; emberSpen
     state.sRankBest = Math.max(state.sRankBest, state.sRank);
   }
 
-  return { state, emberSpentDates };
+  body.wounded = body.hp < body.maxHp / 2;
+  return { state, emberSpentDates, body };
 }
 
 /**
