@@ -62,9 +62,10 @@ children.push(run('tunnel', `"${CLOUDFLARED}"`, ['tunnel', '--url', 'http://loca
     const m = text.match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/);
     if (m && !announced) {
       announced = true;
+      publishBridgeUrl(m[0]);
       setTimeout(() => {
         console.log('\n############################################################');
-        console.log('#  SCRIBE BRIDGE TUNNEL (paste into Settings > BRIDGE URL) #');
+        console.log('#  SCRIBE BRIDGE TUNNEL — auto-connected (no paste needed)  #');
         console.log(`#  ${m[0]}  `);
         console.log('############################################################\n');
       }, 500);
