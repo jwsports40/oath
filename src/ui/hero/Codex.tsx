@@ -56,7 +56,7 @@ export default function Codex({ onClose }: { onClose: () => void }) {
     <div
       style={{
         position: 'fixed', inset: 0, zIndex: 80, background: '#000',
-        overflowY: 'auto', padding: 16, display: 'flex', justifyContent: 'center',
+        overflowY: 'auto', padding: '16px 16px 96px', display: 'flex', justifyContent: 'center',
       }}
     >
       <div style={{ width: '100%', maxWidth: 398, background: '#000' }}>
