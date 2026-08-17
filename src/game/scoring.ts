@@ -88,3 +88,11 @@ export function toScoreable(i: QuestInstance): Scoreable {
     failed: i.status === 'failed',
   };
 }
+
+/**
+ * Calories counted against the calorie band: protein beyond the goal is FREE —
+ * overshooting protein is the same as hitting it, never a penalty (4 cal/g).
+ */
+export function countedCalories(cal: number, protein: number, proteinGoal: number): number {
+  return cal - Math.max(0, protein - proteinGoal) * 4;
+}

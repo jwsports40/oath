@@ -6,16 +6,10 @@ import { useOath } from '../../app/store';
 import { newId } from '../../core/ids';
 import { dayKey, parseDay } from '../../core/dates';
 import { DIFFICULTY } from '../../core/types';
-import type { Difficulty, QuestKind, QuestTemplate, Recurrence } from '../../core/types';
+import type { Difficulty, QuestTemplate, Recurrence } from '../../core/types';
 import { Panel, SectionLabel, DifficultyPips } from '../atoms';
 
 const DIFFICULTIES: Difficulty[] = ['trivial', 'easy', 'medium', 'hard', 'elite'];
-const KINDS: { kind: QuestKind; label: string }[] = [
-  { kind: 'binary', label: 'BINARY' },
-  { kind: 'quantity', label: 'QUANTITY' },
-  { kind: 'workout', label: 'WORKOUT-LINKED' },
-  { kind: 'nutrition', label: 'NUTRITION-LINKED' },
-];
 const REC_TYPES: { type: Recurrence['type']; label: string }[] = [
   { type: 'everyDay', label: 'EVERY DAY' },
   { type: 'weekdays', label: 'WEEKDAYS' },
@@ -214,19 +208,8 @@ export default function QuestEditor({ template, onClose }: {
             ))}
           </div>
 
-          <SectionLabel>Kind</SectionLabel>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {KINDS.map((k) => (
-              <button
-                key={k.kind}
-                type="button"
-                style={chipStyle(k.kind === draft.kind)}
-                onClick={() => patch({ kind: k.kind })}
-              >
-                {k.label}
-              </button>
-            ))}
-          </div>
+          {/* Every forged quest is a plain rune — kinds live on only for
+              seeded templates (WATER keeps its quantity target below). */}
           {draft.kind === 'quantity' && (
             <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
               <input

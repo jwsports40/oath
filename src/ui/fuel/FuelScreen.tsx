@@ -3,6 +3,7 @@ import '../../ai/queue'; // side effect: registers the SCRIBE drain with the sto
 import { useOath } from '../../app/store';
 import { Icon, PageFrame, Panel, QuantityBar, SectionLabel, SegmentedBar } from '../atoms';
 import type { FoodEntry, Meal } from '../../core/types';
+import { countedCalories } from '../../game/scoring';
 
 const OZ_TO_ML = 29.5735;
 
@@ -164,7 +165,8 @@ export default function FuelScreen() {
   const mealsLogged = meals.filter((m) => m.entries.length > 0).length;
   const rulesMet = [
     !rules.proteinGoal || macros.p >= goals.protein,
-    Math.abs(macros.cal - goals.calories) <= goals.calories * (rules.calorieBandPct / 100),
+    Math.abs(countedCalories(macros.cal, macros.p, goals.protein) - goals.calories)
+      <= goals.calories * (rules.calorieBandPct / 100),
     mealsLogged >= rules.minMeals,
   ].filter(Boolean).length;
 

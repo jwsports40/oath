@@ -15,7 +15,7 @@ import {
 import { isScheduled, scheduledDatesInRange } from '../data/recurrence';
 import { addDays, dayKey, eachDay, weekStartOf } from '../core/dates';
 import { newId } from '../core/ids';
-import { dayScore, dayRank, toScoreable } from '../game/scoring';
+import { countedCalories, dayScore, dayRank, toScoreable } from '../game/scoring';
 import { armorAgeForLevel, levelForXp, titleForLevel } from '../game/xp';
 import { perQuestStreak } from '../game/streaks';
 import type { BodyState } from '../game/body';
@@ -177,7 +177,8 @@ export const useOath = create<OathStore>()((set, get) => {
       .filter((m) => m.entries.length > 0);
     const macros = macroTotals(meals);
     const proteinOk = !rules.proteinGoal || macros.p >= goals.protein;
-    const calOk = Math.abs(macros.cal - goals.calories) <= goals.calories * (rules.calorieBandPct / 100);
+    const cal = countedCalories(macros.cal, macros.p, goals.protein);
+    const calOk = Math.abs(cal - goals.calories) <= goals.calories * (rules.calorieBandPct / 100);
     const mealsOk = meals.length >= rules.minMeals;
     if (proteinOk && calOk && mealsOk) {
       applyCompletion(await completeInstance(nutrition.id, new Date().toISOString()));
@@ -514,7 +515,8 @@ export const useOath = create<OathStore>()((set, get) => {
           .filter((m) => m.entries.length > 0);
         const macros = macroTotals(meals);
         const proteinOk = !rules.proteinGoal || macros.p >= goals.protein;
-        const calOk = Math.abs(macros.cal - goals.calories) <= goals.calories * (rules.calorieBandPct / 100);
+        const cal = countedCalories(macros.cal, macros.p, goals.protein);
+        const calOk = Math.abs(cal - goals.calories) <= goals.calories * (rules.calorieBandPct / 100);
         if (!(proteinOk && calOk && meals.length >= rules.minMeals)) {
           await uncompleteInstance(nutrition.id);
         }
