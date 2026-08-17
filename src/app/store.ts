@@ -21,7 +21,8 @@ import { perQuestStreak } from '../game/streaks';
 import type { BodyState } from '../game/body';
 import { INITIAL_VIGOR, vigorBand as bandOf } from '../game/vigor';
 import { scheduleNotifications } from './notify';
-import { resolveBridgeUrlAuto } from '../ai/nutrition';
+import { bridgeAvailable, resolveBridgeUrlAuto } from '../ai/nutrition';
+import { hashPin, isAdminHash } from '../core/pin';
 import { syncNow } from '../data/sync';
 import type { Tab } from './tabs';
 import type {
@@ -46,6 +47,7 @@ export interface OathStore {
   ready: boolean; initError: string | null; today: string; tab: Tab;
   syncStatus: 'off' | 'syncing' | 'synced' | 'error'; lastSyncAt: string | null;
   syncNow(): Promise<void>;
+  switchLogin(pin: string | null): Promise<string | null>;  // login/create (null = log out); resolves to an error message or null
   instances: QuestInstance[];                 // today's, sorted: main first, required, optional
   templates: QuestTemplate[]; categories: Category[];
   character: Character & { title: string; armorAge: [number, string, string]; into: number; next: number };
@@ -59,6 +61,7 @@ export interface OathStore {
   sigCooldown: number;             // daily resets until its signature is charged (0 = ready)
   todayStatus: DayStatus | null;   // active 24h curse from yesterday's signature
   weekStrikes: VillainStrike[];    // this week's landed boss attacks (for the siege log)
+  isAdmin: boolean;                // true only for the owner's PIN login
   week: { date: string; rank: Rank | null; isToday: boolean }[];   // Mon..Sun of current week
   goals: NutritionGoal; meals: Meal[]; macros: { cal: number; p: number; c: number; f: number };
   hydrationOz: number;
@@ -256,6 +259,32 @@ export const useOath = create<OathStore>()((set, get) => {
     syncStatus: 'off' as const,
     lastSyncAt: null,
     async syncNow(): Promise<void> { await doSync(); },
+
+    /**
+     * Switch saves by PIN. The current save takes a final sync under its own
+     * identity, the local db is wiped, the PIN's profile is pulled from the
+     * bridge (a brand-new PIN starts a fresh level-1 knight), and the app
+     * reloads. Requires the bridge so no save can be stranded.
+     */
+    async switchLogin(pin: string | null): Promise<string | null> {
+      const url = await resolveBridgeUrlAuto(get().settings.bridgeUrl);
+      if (url === null || !(await bridgeAvailable(url))) {
+        return 'BRIDGE UNREACHABLE — CANNOT SWITCH SAVES SAFELY';
+      }
+      try {
+        await syncNow(url);                       // final save under the current login
+      } catch { /* keep going — the wipe below only follows a failed PUSH, never a failed PULL */ }
+      const hash = pin === null ? null : hashPin(pin);
+      await db.delete();
+      await db.open();
+      await kvSet('pinHash', hash);
+      try {
+        await syncNow(url);                       // pull the PIN's own save (404 -> stays empty, seeds fresh)
+      } catch { /* offline pull — init will seed */ }
+      sessionStorage.setItem('oath-unlocked', '1');
+      window.location.reload();
+      return null;
+    },
     today: dayKey(new Date()),
     tab: 'today',
     instances: [],
@@ -276,6 +305,7 @@ export const useOath = create<OathStore>()((set, get) => {
     sigCooldown: 0,
     todayStatus: null,
     weekStrikes: [],
+    isAdmin: false,
     week: [],
     goals: DEFAULT_NUTRITION_GOAL,
     meals: [],
@@ -622,7 +652,8 @@ export const useOath = create<OathStore>()((set, get) => {
       const charRaw = await kvGet<Character>('character', INITIAL_CHARACTER);
       const { into, next } = levelForXp(charRaw.xpTotal);
       const settingsForAge = await kvGet<UserSettings>('settings', DEFAULT_SETTINGS);
-      const ageLevel = settingsForAge.adminKnightLevel ?? charRaw.level;
+      const isAdmin = isAdminHash(await kvGet<string | null>('pinHash', null));
+      const ageLevel = isAdmin ? settingsForAge.adminKnightLevel ?? charRaw.level : charRaw.level;
       const character = {
         ...charRaw,
         title: titleForLevel(ageLevel),
@@ -694,7 +725,7 @@ export const useOath = create<OathStore>()((set, get) => {
         live: { score, rank, pct: score },
         streaks, body, perQuestStreaks, vigor, vigorBand: bandOf(vigor), siege, week,
         chests, loot, equipped, ageLevel,
-        villain, sigCooldown, todayStatus, weekStrikes,
+        villain, sigCooldown, todayStatus, weekStrikes, isAdmin,
         goals, meals, macros, hydrationOz, dailyScores,
         programs, exercises, sessions, prs, achievements, unlocks, settings, aiQueueSize,
       });

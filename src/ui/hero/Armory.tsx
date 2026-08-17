@@ -20,6 +20,7 @@ interface Tile {
 export default function Armory() {
   const level = useOath((s) => s.ageLevel); // admin override wins
   const settings = useOath((s) => s.settings);
+  const isAdmin = useOath((s) => s.isAdmin);
   const updateSettings = useOath((s) => s.updateSettings);
   const unlocks = useOath((s) => s.unlocks);
   const streaks = useOath((s) => s.streaks);
@@ -38,8 +39,9 @@ export default function Armory() {
     ageLevel: lv,
   }));
 
-  /** Tap a knight to wear it (admin: any knight, locked or not). Tap the worn one to revert. */
+  /** Tap a knight to wear it — the owner's admin login only. */
   const wear = (lv: number): void => {
+    if (!isAdmin) return;
     const worn = settings.adminKnightLevel;
     void updateSettings(worn === lv ? { adminKnightLevel: undefined } : { adminKnightLevel: lv });
   };

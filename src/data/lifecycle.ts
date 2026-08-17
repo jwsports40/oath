@@ -17,6 +17,7 @@ import {
 } from '../game/body';
 import { chestEntitlements, equippedIds, lootEffects, type LootEffects } from '../game/loot';
 import { NO_MODS, VILLAINS, mergeMods, villainByKey, villainFor, type StatusMods } from '../game/villains';
+import { isAdminHash } from '../core/pin';
 import type { DayStatus } from '../game/streaks';
 import { ARMOR_AGES, DIFFICULTY, TITLES } from '../core/types';
 import { DEFAULT_NUTRITION_GOAL } from './seed';
@@ -35,6 +36,7 @@ async function perkContext(date?: string): Promise<{
 }> {
   const ch = await kvGet<Character>('character', { level: 1, xpTotal: 0, str: 10, vit: 1, wil: 10, stam: 10 });
   const settings = await kvGet<{ adminKnightLevel?: number }>('settings', {});
+  const admin = isAdminHash(await kvGet<string | null>('pinHash', null));
   const equipped = await kvGet<Equipped>('equipped', {});
   const items = (await Promise.all(equippedIds(equipped).map((i) => db.loot.get(i))))
     .filter((x): x is LootItem => x !== undefined);
@@ -64,7 +66,7 @@ async function perkContext(date?: string): Promise<{
   };
   return {
     level: ch.level,
-    ageLevel: settings.adminKnightLevel ?? ch.level,
+    ageLevel: admin ? settings.adminKnightLevel ?? ch.level : ch.level,
     str: ch.str, wil: ch.wil, stam: ch.stam ?? 10,
     fx, mods,
   };
@@ -447,10 +449,11 @@ export async function recomputeDerived(): Promise<void> {
     workOk: runesByDate.get(d.date)?.has('work') === true,
   }));
   const settings = await kvGet<{ adminKnightLevel?: number }>('settings', {});
+  const admin = isAdminHash(await kvGet<string | null>('pinHash', null));
   const equippedSlots = await kvGet<Equipped>('equipped', {});
   const equippedItems = (await Promise.all(equippedIds(equippedSlots).map((i) => db.loot.get(i))))
     .filter((x): x is LootItem => x !== undefined);
-  const ageLevel = settings.adminKnightLevel ?? level;
+  const ageLevel = admin ? settings.adminKnightLevel ?? level : level;
   const villainByWeek: Record<string, string> = {};
   const strikesByWeek: Record<string, { normal: number; sig: number }> = {};
   const killDateByWeek: Record<string, string> = {};

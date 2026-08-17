@@ -23,3 +23,11 @@ export function hashPin(pin: string): string {
   }
   return h1.toString(16).padStart(8, '0') + h2.toString(16).padStart(8, '0');
 }
+
+// The owner's login. Only this PIN unlocks admin powers (knight switching).
+// Stored as a hash so the digits never appear in the public repo.
+export const ADMIN_PIN_HASH = '687bf9b507cc199a';
+
+export function isAdminHash(pinHash: string | null): boolean {
+  return pinHash === ADMIN_PIN_HASH;
+}
