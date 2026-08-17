@@ -1,7 +1,28 @@
 import type { CSSProperties, ReactNode } from 'react';
 
+/** Card-frame corner diamond: small rotated square, like the knight cards. */
+export function CornerDiamonds({ color = 'var(--gild)' }: { color?: string }) {
+  const base: CSSProperties = {
+    position: 'absolute',
+    width: 7,
+    height: 7,
+    border: `1px solid ${color}`,
+    background: 'var(--bg0)',
+    transform: 'rotate(45deg)',
+    pointerEvents: 'none',
+  };
+  return (
+    <>
+      <span aria-hidden style={{ ...base, top: -4, left: -4 }} />
+      <span aria-hidden style={{ ...base, top: -4, right: -4 }} />
+      <span aria-hidden style={{ ...base, bottom: -4, left: -4 }} />
+      <span aria-hidden style={{ ...base, bottom: -4, right: -4 }} />
+    </>
+  );
+}
+
 /** 2px corner tick, absolutely positioned inside a bordered box. */
-export function CornerTicks({ color = 'var(--neon)' }: { color?: string }) {
+export function CornerTicks({ color = 'var(--gild)' }: { color?: string }) {
   const base: CSSProperties = {
     position: 'absolute',
     width: 7,
@@ -33,7 +54,7 @@ export default function PageFrame({
 }) {
   return (
     <div className="page" style={{ position: 'relative' }}>
-      <CornerTicks />
+      <CornerDiamonds />
       <header
         style={{
           display: 'flex',
@@ -47,7 +68,7 @@ export default function PageFrame({
             fontFamily: 'var(--font-label)',
             fontSize: 8,
             letterSpacing: '0.35em',
-            color: 'var(--neon)',
+            color: 'var(--gild)',
           }}
         >
           OATH
@@ -64,7 +85,7 @@ export default function PageFrame({
           fontWeight: 400,
           fontSize: 34,
           margin: '2px 0 12px',
-          color: 'var(--text-hi)',
+          color: 'var(--gild-bright)',
         }}
       >
         {title}

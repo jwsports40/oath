@@ -21,7 +21,7 @@ export default function Panel({
         padding: 12,
       }}
     >
-      <CornerTicks color={amber ? 'var(--amber)' : 'var(--neon)'} />
+      <CornerTicks color={amber ? 'var(--gild-bright)' : 'var(--gild)'} />
       {children}
     </div>
   );

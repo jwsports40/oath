@@ -9,6 +9,11 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: {
+        // Include the knight card art so the installed app is fully offline.
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        maximumFileSizeToCacheInBytes: 5_000_000,
+      },
       manifest: {
         name: 'Oath',
         short_name: 'OATH',

@@ -1,14 +1,20 @@
-/* Oath design tokens — spec §2 "the Ledger" (exact values, do not drift) */
+/* Oath design tokens — "the Gilded Ledger": spec §2 base palette, chrome
+   restructured to antique gold to match the hand-made knight card art. */
 :root {
   /* background */
   --bg0: #080B08;
   --bg1: #060907;
   --bg-deep: #050705;
 
-  /* surfaces */
+  /* surfaces — borders are now dark antique gold, like the card frames */
   --panel: #0A100B;
-  --border: #1C2E22;
+  --border: #55461f;
   --hairline: #14211A;
+
+  /* gilding (card-frame gold) */
+  --gild: #c9a23c;
+  --gild-bright: #e3c26a;
+  --gild-dim: #6b5620;
 
   /* THE accent */
   --neon: #46FF7D;
