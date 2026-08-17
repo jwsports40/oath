@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react';
 import { useOath } from '../../app/store';
 import { kvGet } from '../../data/db';
 import { KILL_XP } from '../../game/siege';
+import { VILLAINS } from '../../game/villains';
 import type { SiegeState } from '../../core/types';
 import { Icon, SectionLabel } from '../atoms';
 import Knight from '../knight/Knight';
@@ -62,6 +63,18 @@ function BossSprite({ size = 132, dimmed = false }: { size?: number; dimmed?: bo
       ))}
     </svg>
   );
+}
+
+// Villain battle scenes, generation order = ladder order (VILLAINS index).
+const SCENES = import.meta.glob('./scenes/*.webp', {
+  eager: true, query: '?url', import: 'default',
+}) as Record<string, string>;
+
+function sceneFor(villainKey: string | undefined): string | undefined {
+  if (villainKey === undefined) return undefined;
+  const idx = VILLAINS.findIndex((v) => v.key === villainKey);
+  if (idx < 0) return undefined;
+  return SCENES[`./scenes/scene-${String(idx + 1).padStart(2, '0')}.webp`];
 }
 
 // --- The screen --------------------------------------------------------------
@@ -231,16 +244,29 @@ export function SiegeView({
           </div>
         )}
 
-        {/* Arena: knight vs boss */}
-        <div
-          style={{
-            display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
-            padding: '10px 6px', background: 'var(--panel)', border: '1px solid var(--border)',
-          }}
-        >
-          <Knight level={level} pose="full" size={108} />
-          <BossSprite size={132} dimmed={siege.killed} />
-        </div>
+        {/* Arena: this villain's battle scene (pixel sprite as fallback) */}
+        {sceneFor(siege.villainKey) !== undefined ? (
+          <div style={{ border: '1px solid var(--border)', overflow: 'hidden', background: '#000' }}>
+            <img
+              src={sceneFor(siege.villainKey)}
+              alt={siege.name}
+              style={{
+                display: 'block', width: '100%', aspectRatio: '3 / 2', objectFit: 'cover',
+                filter: siege.killed ? 'grayscale(1) brightness(0.45)' : undefined,
+              }}
+            />
+          </div>
+        ) : (
+          <div
+            style={{
+              display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between',
+              padding: '10px 6px', background: 'var(--panel)', border: '1px solid var(--border)',
+            }}
+          >
+            <Knight level={level} pose="full" size={108} />
+            <BossSprite size={132} dimmed={siege.killed} />
+          </div>
+        )}
 
         {/* Kill reward band */}
         {siege.killed && (

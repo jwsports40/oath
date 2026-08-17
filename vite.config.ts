@@ -11,7 +11,7 @@ export default defineConfig({
       registerType: 'autoUpdate',
       workbox: {
         // Include the knight card art so the installed app is fully offline.
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp}'],
         maximumFileSizeToCacheInBytes: 5_000_000,
         // New versions take over immediately (paired with registerSW reload).
         skipWaiting: true,
