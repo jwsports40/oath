@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { useOath } from '../../app/store';
 import { kvGet } from '../../data/db';
 import { KILL_XP } from '../../game/siege';
-import { VILLAINS } from '../../game/villains';
+import { sceneFor } from './scenes';
 import type { SiegeState } from '../../core/types';
 import { Icon, SectionLabel } from '../atoms';
 import Knight from '../knight/Knight';
@@ -63,18 +63,6 @@ function BossSprite({ size = 132, dimmed = false }: { size?: number; dimmed?: bo
       ))}
     </svg>
   );
-}
-
-// Villain battle scenes, generation order = ladder order (VILLAINS index).
-const SCENES = import.meta.glob('./scenes/*.webp', {
-  eager: true, query: '?url', import: 'default',
-}) as Record<string, string>;
-
-function sceneFor(villainKey: string | undefined): string | undefined {
-  if (villainKey === undefined) return undefined;
-  const idx = VILLAINS.findIndex((v) => v.key === villainKey);
-  if (idx < 0) return undefined;
-  return SCENES[`./scenes/scene-${String(idx + 1).padStart(2, '0')}.webp`];
 }
 
 // --- The screen --------------------------------------------------------------
@@ -223,10 +211,10 @@ export function SiegeView({
         {villain !== null && (
           <div style={{ border: '1px solid var(--hairline)', padding: '6px 10px', fontFamily: 'var(--font-body)', fontSize: 16 }}>
             <div style={{ color: 'var(--text-mid)' }}>
-              {villain.normal.label} — {siege.strikeDmg ?? villain.normal.dmg} HP
+              {villain.normal.label} — {siege.strikeDmg ?? villain.normal.dmg} HP · EVERY DAY IT STANDS
             </div>
             <div style={{ color: 'var(--ember)' }}>
-              {villain.signature.label} — {siege.sigDmg ?? villain.signature.dmg} HP · {villain.signature.desc}
+              {villain.signature.label} — {siege.sigDmg ?? villain.signature.dmg} HP · BAD DAYS, 50/50 · {villain.signature.desc}
             </div>
           </div>
         )}

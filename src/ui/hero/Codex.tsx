@@ -4,6 +4,8 @@ import type { CSSProperties } from 'react';
 import { CATALOG, CHEST_NAMES, type LootDef } from '../../game/loot';
 import type { ChestKind, LootTier } from '../../core/types';
 import { SectionLabel } from '../atoms';
+import { VILLAINS } from '../../game/villains';
+import { sceneFor } from '../siege/scenes';
 import { emblemUrl } from '../loot/emblems';
 import chestPng from '../loot/chest.png';
 
@@ -90,6 +92,46 @@ export default function Codex({ onClose }: { onClose: () => void }) {
           ))}
           <div style={{ ...bodyText, fontSize: 14, color: 'var(--text-faint)', margin: '4px 0 10px' }}>
             TIER ROLL: 60% COMMON · 30% RARE · 10% MYTHIC. TOTEMS ARE ALWAYS MYTHIC.
+          </div>
+
+          <SectionLabel>THE SIEGE</SectionLabel>
+          <div style={{ ...bodyText, fontSize: 14, color: 'var(--text-low)', marginBottom: 10, lineHeight: 1.5 }}>
+            A NEW BOSS RISES EACH SUNDAY, SCALED TO YOUR KNIGHT AT ITS ARRIVAL (SPOILS DON'T COUNT).
+            ITS HP EQUALS 5 PERFECT DAYS OF YOUR DAMAGE — THE FINAL BOSS TAKES 7.
+            IT STRIKES EVERY DAY IT STANDS, FOR YOUR MAX HP ÷ 5 — THE FINAL BOSS HITS FOR ÷ 4.
+            ON A BAD DAY (BELOW C) A CHARGED SIGNATURE HAS 50/50 ODDS TO FIRE INSTEAD;
+            A MISS KEEPS IT CHARGED, A HIT CURSES YOUR NEXT DAY FOR 24H AND RECHARGES FOR 2 DAYS.
+            KILL THE BOSS AND THE STRIKES STOP FOR THE WEEK.
+            AT 0 HP IT STEALS AN EMBER AND YOU RALLY AT HALF HP.
+            SURVIVE THE WEEK AND IT RETURNS RISEN AT +5% HP.
+          </div>
+
+          <SectionLabel>VILLAINS OF THE LADDER</SectionLabel>
+          {VILLAINS.map((v) => (
+            <div key={v.key} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid var(--hairline)' }}>
+              {sceneFor(v.key) !== undefined && (
+                <img
+                  src={sceneFor(v.key)}
+                  alt={v.name}
+                  style={{ width: 92, height: 61, objectFit: 'cover', flexShrink: 0, border: '1px solid var(--border)' }}
+                />
+              )}
+              <div style={{ minWidth: 0 }}>
+                <div style={{ ...bodyText, fontSize: 16, color: 'var(--text-hi)' }}>
+                  {v.name}
+                  <span style={{ color: 'var(--text-faint)', fontSize: 13 }}>
+                    {'  '}{v.key === 'ultimateDarkLord' ? 'LV 100 · FINAL BOSS' : `LV ${Math.max(1, v.band)}–${v.band + 9}`}
+                  </span>
+                </div>
+                <div style={{ ...bodyText, fontSize: 13, color: 'var(--text-mid)' }}>{v.normal.label}</div>
+                <div style={{ ...bodyText, fontSize: 13, color: 'var(--ember)' }}>
+                  ULT: {v.signature.label} — {v.signature.desc}
+                </div>
+              </div>
+            </div>
+          ))}
+          <div style={{ ...bodyText, fontSize: 13, color: 'var(--text-faint)', margin: '4px 0 12px' }}>
+            ATTACK DAMAGE SCALES TO YOUR KNIGHT WHEN THE BOSS RISES. ULTS DEAL 1.5× A NORMAL BLOW.
           </div>
 
           <SectionLabel>TOKENS — XP</SectionLabel>

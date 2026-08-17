@@ -42,6 +42,7 @@ export function foldStreaks(
     level: number; effects?: Partial<LootEffects>;
     villainByWeek?: Record<string, string>;   // weekStart -> pinned villain key
     strikesByWeek?: Record<string, { normal: number; sig: number }>;  // pinned pre-spoils damage
+    killDateByWeek?: Record<string, string>;  // weekStart -> day the boss fell (no strikes after)
   } = { level: 1 },
 ): {
   state: StreakState; emberSpentDates: string[]; body: BodyState;
@@ -91,23 +92,21 @@ export function foldStreaks(
     if (day.waterOk === true) body.waterDays += 1;
     if (rankAtLeast(day.rank, 'S')) body.sRankDays += 1;
 
-    if (rankAtLeast(day.rank, 'C')) {
-      const aegis = mods.aegisDisabled ? 0 : regenBonus * mods.enchantMult;
-      const regen = Math.max(0, Math.round((regenAmount(opts.level) + aegis - mods.regenFlat) * mods.regenMult));
-      body.hp = Math.min(body.maxHp, body.hp + regen);
-      state.overall += 1;
-      state.cPlusRun += 1;
-      if (state.cPlusRun % 7 === 0 && state.embers < capacity) state.embers += 1;
-    } else {
-      // The villain strikes FIRST. A charged signature fires on a 50/50 coin
-      // (deterministic per date+villain); a miss keeps it charged.
-      const week = weekStartOf(day.date);
+    // The villain strikes FIRST, EVERY day it still stands this week. On a
+    // sub-C day a charged signature may fire (50/50 coin, deterministic per
+    // date+villain; a miss keeps it charged) — good days only take the
+    // normal blow.
+    const week = weekStartOf(day.date);
+    const killedAt = opts.killDateByWeek?.[week];
+    const bossAlive = killedAt === undefined || day.date < killedAt;
+    if (bossAlive) {
       const pinned = opts.villainByWeek?.[week];
       const villain = (pinned !== undefined ? villainByKey(pinned) : undefined)
         ?? villainFor(opts.level, week);
+      const badDay = !rankAtLeast(day.rank, 'C');
       let dmg: number;
       const pinnedDmg = opts.strikesByWeek?.[week];
-      if (sigCd === 0 && signatureCoin(day.date, villain.key)) {
+      if (badDay && sigCd === 0 && signatureCoin(day.date, villain.key)) {
         dmg = pinnedDmg?.sig ?? villain.signature.dmg;
         sigCd = SIGNATURE_COOLDOWN_DAYS;
         pendingStatus = {
@@ -137,6 +136,15 @@ export function foldStreaks(
           body.hp = 0;
         }
       }
+    }
+    if (rankAtLeast(day.rank, 'C')) {
+      const aegis = mods.aegisDisabled ? 0 : regenBonus * mods.enchantMult;
+      const regen = Math.max(0, Math.round((regenAmount(opts.level) + aegis - mods.regenFlat) * mods.regenMult));
+      body.hp = Math.min(body.maxHp, body.hp + regen);
+      state.overall += 1;
+      state.cPlusRun += 1;
+      if (state.cPlusRun % 7 === 0 && state.embers < capacity) state.embers += 1;
+    } else {
       if (Math.max(0, state.embers - mods.emberSeal) > 0) {
         // Auto-burn an ember to preserve the overall streak.
         state.embers -= 1;

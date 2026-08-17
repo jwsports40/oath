@@ -426,14 +426,19 @@ export async function recomputeDerived(): Promise<void> {
   const ageLevel = settings.adminKnightLevel ?? level;
   const villainByWeek: Record<string, string> = {};
   const strikesByWeek: Record<string, { normal: number; sig: number }> = {};
+  const killDateByWeek: Record<string, string> = {};
   for (const sg of await db.sieges.toArray()) {
     if (sg.villainKey !== undefined) villainByWeek[sg.weekStart] = sg.villainKey;
     if (sg.strikeDmg !== undefined) {
       strikesByWeek[sg.weekStart] = { normal: sg.strikeDmg, sig: sg.sigDmg ?? Math.round(sg.strikeDmg * 1.5) };
     }
+    // Damage stops once the boss falls — the killing blow is the last log entry.
+    if (sg.killed && sg.log.length > 0) {
+      killDateByWeek[sg.weekStart] = dayKey(new Date(sg.log[sg.log.length - 1]!.at));
+    }
   }
   const { state: streaks, emberSpentDates, body, statusByDate, sigCooldown } = foldStreaks(outcomes, {
-    level: ageLevel, effects: lootEffects(equippedItems), villainByWeek, strikesByWeek,
+    level: ageLevel, effects: lootEffects(equippedItems), villainByWeek, strikesByWeek, killDateByWeek,
   });
   await kvSet('streaks', streaks);
   await kvSet('body', body);

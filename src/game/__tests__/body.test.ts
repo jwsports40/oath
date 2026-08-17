@@ -110,9 +110,11 @@ describe('foldStreaks body integration (villain ladder)', () => {
     expect(r.body.emberSteals).toBe(0);
   });
   it('ember capacity is 3 at ABYSS KNIGHT (level 60+)', () => {
+    // Heavy armor keeps daily strikes below regen so no ember is ever stolen —
+    // this test measures capacity only.
     const days: DayOutcome[] = Array.from({ length: 21 }, (_, i) => day('C', 60, { date: `d${i}` }));
-    expect(foldStreaks(days, { level: 1 }).state.embers).toBe(2);
-    expect(foldStreaks(days, { level: 60 }).state.embers).toBe(3);
+    expect(foldStreaks(days, { level: 1, effects: { strikeArmor: 99 } }).state.embers).toBe(2);
+    expect(foldStreaks(days, { level: 60, effects: { strikeArmor: 99 } }).state.embers).toBe(3);
   });
   it('without body options, behaves exactly as before', () => {
     const days: DayOutcome[] = Array.from({ length: 7 }, (_, i) => day('C', 60, { date: `d${i}` }));
