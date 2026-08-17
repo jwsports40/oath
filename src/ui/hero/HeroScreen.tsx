@@ -175,7 +175,6 @@ export default function HeroScreen() {
         <SectionLabel>STREAKS</SectionLabel>
         <Panel>
           <StreakRow label="OVERALL" current={streaks.overall} best={streaks.overallBest} />
-          <StreakRow label="PERFECT" current={streaks.perfect} best={streaks.perfectBest} />
           <StreakRow label="S-RANK" current={streaks.sRank} best={streaks.sRankBest} />
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0' }}>
             <span style={{ ...bodyText, color: 'var(--text-mid)' }}>EMBERS</span>
