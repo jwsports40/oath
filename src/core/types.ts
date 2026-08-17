@@ -6,6 +6,7 @@ export const DIFFICULTY: Record<Difficulty,{xp:number;weight:number;label:string
   elite:{xp:100,weight:10,label:'ELITE'} };
 export type Rank = 'F'|'D'|'C'|'B'|'A'|'S'|'S+';
 export type QuestKind = 'binary'|'quantity'|'workout'|'nutrition';
+export type RuneType = 'physical'|'mental'|'work';   // stat rune: +1 STR / +1 WIL / +1 VIT per day
 export type Recurrence =
   | {type:'everyDay'} | {type:'weekdays'} | {type:'weekends'}
   | {type:'daysOfWeek'; days:number[]}            // 1=Mon..7=Sun
@@ -17,6 +18,7 @@ export interface Category { id:string; name:string; builtin:boolean; }
 export interface QuestTemplate {
   id:string; name:string; categoryId:string; difficulty:Difficulty; kind:QuestKind;
   main:boolean; optional:boolean; recurrence:Recurrence;
+  rune?:RuneType;                                  // completed-day stat gain (max 1/day)
   target?:number; unit?:string;                    // quantity kind
   reminders:string[];                              // 'HH:MM'
   createdAt:string; archivedAt?:string;
@@ -25,7 +27,7 @@ export type InstanceStatus = 'todo'|'done'|'failed';
 export interface QuestInstance {
   id:string; templateId:string; date:string;       // day key
   name:string; categoryId:string; difficulty:Difficulty; kind:QuestKind;
-  main:boolean; optional:boolean; target?:number; unit?:string;
+  main:boolean; optional:boolean; rune?:RuneType; target?:number; unit?:string;
   status:InstanceStatus; progress:number;          // quantity progress; binary: 0|1
   completedAt?:string;
 }

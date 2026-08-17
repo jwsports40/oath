@@ -11,9 +11,9 @@ import { dayScore, dayRank, toScoreable } from '../game/scoring';
 import { xpAward, levelForXp } from '../game/xp';
 import { foldStreaks, perQuestStreak, rankAtLeast, type DayOutcome } from '../game/streaks';
 import { nextVigor, INITIAL_VIGOR } from '../game/vigor';
-import { newSiege, bossHeal, dealDamage, KILL_XP } from '../game/siege';
+import { newSiege, dealDamage, KILL_XP } from '../game/siege';
 import {
-  carryFactor, critMult, dmgMult, healPct, maxHpFor, optionalCap, workoutXpMult,
+  carryFactor, critMult, dmgMult, maxHpFor, optionalCap, workoutXpMult,
 } from '../game/body';
 import { chestEntitlements, equippedIds, lootEffects, type LootEffects } from '../game/loot';
 import { NO_MODS, VILLAINS, mergeMods, villainByKey, villainFor, type StatusMods } from '../game/villains';
@@ -50,7 +50,7 @@ async function perkContext(date?: string): Promise<{
     ...fx,
     xpAll: fx.xpAll * m, xpWorkout: fx.xpWorkout * m, xpMain: fx.xpMain * m, xpFirst: fx.xpFirst * m,
     strikeArmor: fx.strikeArmor * m, siegeDmg: fx.siegeDmg * m,
-    healPtDown: fx.healPtDown * m, regenBonus: fx.regenBonus * m,
+    strikeShave: fx.strikeShave * m, regenBonus: fx.regenBonus * m,
   });
   const tokens = scale(lootEffects(items.filter((i) => i.genre === 'token')), mods.tokenMult);
   const enchants = scale(lootEffects(items.filter((i) => i.genre === 'enchant')), mods.enchantMult);
@@ -58,7 +58,7 @@ async function perkContext(date?: string): Promise<{
   const fx: LootEffects = {
     xpAll: tokens.xpAll, xpWorkout: tokens.xpWorkout, xpMain: tokens.xpMain, xpFirst: tokens.xpFirst,
     strikeArmor: enchants.strikeArmor, siegeDmg: enchants.siegeDmg,
-    healPtDown: enchants.healPtDown, regenBonus: enchants.regenBonus,
+    strikeShave: enchants.strikeShave, regenBonus: enchants.regenBonus,
     maxHpBonus: totems.maxHpBonus, carryBonus: totems.carryBonus,
     wardEmber: totems.wardEmber, unbroken: totems.unbroken,
   };
@@ -119,6 +119,7 @@ async function materializeDay(d: string): Promise<void> {
       main: t.main, optional: effectiveOptional(t),
       status: 'todo', progress: 0,
     };
+    if (t.rune !== undefined) instance.rune = t.rune;
     if (t.target !== undefined) instance.target = t.target;
     if (t.unit !== undefined) instance.unit = t.unit;
     await db.instances.add(instance);
@@ -153,10 +154,7 @@ async function sealDay(d: string): Promise<DailyScore | null> {
     sealed: true,
   };
   await db.dailyScores.put(sealed);
-  if (!rankAtLeast(rank, 'C')) {
-    const siege = await db.sieges.get(weekStartOf(d));
-    if (siege !== undefined && !siege.killed) await db.sieges.put(bossHeal(siege, Math.max(0.005, healPct(perk.ageLevel) - perk.fx.healPtDown)));
-  }
+  // The boss NEVER heals — its Sunday pool is all it gets.
   return sealed;
 }
 
@@ -426,11 +424,27 @@ export async function recomputeDerived(): Promise<void> {
     waterByDate.set(h.date, (waterByDate.get(h.date) ?? 0) + h.oz);
   }
 
+  // Rune-day flags: a surviving completion of a runed quest marks its day
+  // (unchecking deletes the completion, so this is cheat-proof; a day can
+  // never grant more than one point per stat, however many quests complete).
+  const templatesById = new Map((await db.templates.toArray()).map((t) => [t.id, t]));
+  const runesByDate = new Map<string, Set<string>>();
+  for (const c of await db.completions.toArray()) {
+    const rune = templatesById.get(c.templateId)?.rune;
+    if (rune === undefined) continue;
+    const set = runesByDate.get(c.date) ?? new Set<string>();
+    set.add(rune);
+    runesByDate.set(c.date, set);
+  }
+
   // Streaks, embers, and the knight's body — one fold, one source of truth.
   const outcomes: DayOutcome[] = sealed.map((d) => ({
     date: d.date, rank: d.rank, score: d.score,
     proteinOk: (proteinByDate.get(d.date) ?? 0) >= goals.protein,
     waterOk: (waterByDate.get(d.date) ?? 0) >= goals.waterOz,
+    physicalOk: runesByDate.get(d.date)?.has('physical') === true,
+    mentalOk: runesByDate.get(d.date)?.has('mental') === true,
+    workOk: runesByDate.get(d.date)?.has('work') === true,
   }));
   const settings = await kvGet<{ adminKnightLevel?: number }>('settings', {});
   const equippedSlots = await kvGet<Equipped>('equipped', {});
@@ -484,13 +498,15 @@ export async function recomputeDerived(): Promise<void> {
   for (const d of sealed) vigor = nextVigor(vigor, d.score);
   await kvSet('vigor', vigor);
 
-  // Character: stats fed by real habits (statboard design doc).
-  const finishedSessions = (await db.sessions.toArray()).filter((s) => s.finishedAt !== undefined).length;
+  // Character: stats fed by rune days (max +1 per stat per day; a stat gain
+  // lands the NEXT dawn because only sealed days are counted).
+  const physicalDays = outcomes.filter((o) => o.physicalOk === true).length;
+  const mentalDays = outcomes.filter((o) => o.mentalOk === true).length;
   await kvSet<Character>('character', {
     level, xpTotal,
-    str: 10 + finishedSessions,
-    vit: 1 + body.sRankDays,
-    wil: 10 + body.sRankDays,
+    str: 10 + physicalDays,
+    vit: 1 + body.workDays,
+    wil: 10 + mentalDays,
     stam: 10 + body.waterDays,
   });
 
@@ -560,7 +576,6 @@ export async function rebuildSieges(): Promise<void> {
   const perk = await perkContext();
   const sieges = await db.sieges.toArray();
   const completions = await db.completions.toArray();
-  const scores = (await db.dailyScores.toArray()).filter((d) => d.sealed);
   let killedCount = 0;
   for (const siege of sieges) {
     const weekEnd = addDays(siege.weekStart, 6);
@@ -577,9 +592,6 @@ export async function rebuildSieges(): Promise<void> {
       overkill += Math.max(0, dmg - hp);
       hp = Math.max(0, hp - dmg);
     }
-    const heals = scores
-      .filter((d) => d.date >= siege.weekStart && d.date <= weekEnd && !rankAtLeast(d.rank, 'C')).length;
-    if (hp > 0) hp = Math.min(siege.maxHp, hp + heals * round(healPct(perk.ageLevel) * siege.maxHp));
     const killed = hp === 0;
     if (killed) killedCount += 1;
     const killEvents = (await db.xpEvents.toArray())
@@ -722,9 +734,9 @@ async function scaleSiegeToKnight(siege: SiegeState, villainKey: string): Promis
   const dealt = Math.max(0, siege.maxHp - siege.hp);
   siege.maxHp = Math.max(50, round10((killDays * weekDmg / 7) * gen));
   siege.hp = Math.max(siege.killed ? 0 : 1, siege.maxHp - Math.max(dealt, siege.carryover));
-  const body = await kvGet<{ proteinDays: number; sRankDays: number }>('body', { proteinDays: 0, sRankDays: 0 });
+  const body = await kvGet<{ proteinDays: number; workDays?: number }>('body', { proteinDays: 0, workDays: 0 });
   const playerMax = maxHpFor(body.proteinDays);
-  const vit = 1 + body.sRankDays;
+  const vit = 1 + (body.workDays ?? 0);
   const divisor = finalBoss ? 4 : easy ? 6 : 5;
   siege.strikeDmg = Math.max(1, Math.ceil(playerMax / divisor) + vit);
   siege.sigDmg = Math.round(siege.strikeDmg * 1.5);

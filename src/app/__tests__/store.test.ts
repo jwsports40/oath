@@ -140,7 +140,7 @@ describe('OathStore', () => {
     drainEffects();
   });
 
-  it('finishSession completes today workout instance; STR = 10 + finished sessions', async () => {
+  it('finishSession completes today workout instance; STR waits for the sealed day', async () => {
     await useOath.getState().saveTemplate(template({ name: 'LIFT', kind: 'workout', difficulty: 'hard' }));
     expect((await inst('LIFT'))!.status).toBe('todo');
 
@@ -153,25 +153,37 @@ describe('OathStore', () => {
     const workouts = (await db.instances.where('date').equals(today).toArray())
       .filter((i) => i.kind === 'workout');
     expect(workouts.some((i) => i.status === 'done')).toBe(true);
-    // the PR session above was never finished — only one finished session
-    expect(useOath.getState().character.str).toBe(11);
+    // STR comes from sealed physical-rune days — today's work lands at next dawn.
+    expect(useOath.getState().character.str).toBe(10);
     drainEffects();
   });
 
   it('stat derivations + achievements update on every refresh', async () => {
     let s = useOath.getState();
-    expect(s.character.vit).toBe(1 + s.body.sRankDays);
+    expect(s.character.vit).toBe(1 + s.body.workDays);
     expect(s.character.wil).toBe(10);
 
-    // A sealed S day appears in the ledger → refresh alone refolds everything.
+    // A sealed day with completed rune quests → refresh refolds every stat.
     await db.dailyScores.put({
       date: '2000-01-05', score: 95, rank: 'S',
       requiredDone: 1, requiredTotal: 1, emberSpent: false, sealed: true,
     });
+    const phys = template({ name: 'PUSHUPS', rune: 'physical' });
+    const mind = template({ name: 'READ', rune: 'mental' });
+    const work = template({ name: 'DEEP WORK', rune: 'work' });
+    await db.templates.bulkPut([phys, mind, work]);
+    for (const t of [phys, mind, work]) {
+      await db.completions.add({
+        id: newId(), instanceId: newId(), templateId: t.id,
+        date: '2000-01-05', at: '2000-01-05T10:00:00.000Z', xp: 10, crit: false,
+      });
+    }
     await useOath.getState().refresh();
     s = useOath.getState();
-    expect(s.character.wil).toBe(11); // 10 + 1 S-rank day (statboard design)
-    expect(s.character.vit).toBe(1 + s.body.sRankDays); // VIT: 1 + S-days
+    expect(s.character.str).toBe(11);  // physical-rune day
+    expect(s.character.wil).toBe(11);  // mental-rune day
+    expect(s.character.vit).toBe(2);   // 1 + work-rune day
+    expect(s.body.workDays).toBe(1);
     expect(s.streaks.overallBest).toBe(1);
     expect(s.dailyScores['2000-01-05']).toBeDefined();
     expect(s.achievements.find((a) => a.id === 'beginning')!.progress).toBe(1);

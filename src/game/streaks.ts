@@ -32,6 +32,7 @@ export interface VillainStrike {
 export interface DayOutcome {
   date: string; rank: Rank; score: number;
   proteinOk?: boolean; waterOk?: boolean;
+  physicalOk?: boolean; mentalOk?: boolean; workOk?: boolean;  // completed rune quests
 }
 
 export const RANK_ORDER: Rank[] = ['F', 'D', 'C', 'B', 'A', 'S', 'S+'];
@@ -74,7 +75,7 @@ export function foldStreaks(
   const capacity = emberCapacity(opts.level);
   const body: BodyState = {
     hp: maxHpFor(0) + hpBonus, maxHp: maxHpFor(0) + hpBonus, wounded: false,
-    proteinDays: 0, waterDays: 0, sRankDays: 0, emberSteals: 0,
+    proteinDays: 0, workDays: 0, waterDays: 0, sRankDays: 0, emberSteals: 0,
   };
 
   for (let i = 0; i < days.length; i++) {
@@ -89,14 +90,10 @@ export function foldStreaks(
       villainBonusNext += mods.villainDmgBonus;
       pendingStatus = null;
     }
-    // Body accounting first: nutrition grows the pool, then the day resolves.
-    if (day.proteinOk === true) {
-      body.proteinDays += 1;
-    }
+    // The pool and the heal reflect PRIOR days only — every stat gain lands
+    // at the next day's dawn (counters increment at the END of this loop).
     body.maxHp = Math.max(1, maxHpFor(body.proteinDays) + hpBonus - mods.maxHpDelta);
     body.hp = Math.min(body.hp, body.maxHp);
-    if (day.waterOk === true) body.waterDays += 1;
-    if (rankAtLeast(day.rank, 'S')) body.sRankDays += 1;
 
     // The villain strikes FIRST, EVERY day it still stands this week. On a
     // sub-C day a charged signature may fire (50/50 coin, deterministic per
@@ -124,8 +121,9 @@ export function foldStreaks(
         dmg = (pinnedDmg?.normal ?? villain.normal.dmg) + villainBonusNext;
         villainBonusNext = 0;
       }
+      const shave = Math.min(0.5, (fx.strikeShave ?? 0) * mods.enchantMult);
       const bulwark = Math.round(armor * mods.bulwarkMult * mods.enchantMult);
-      const dealt = Math.max(1, dmg - bulwark - strikeArmorFromAge(opts.level));
+      const dealt = Math.max(1, Math.round(dmg * (1 - shave)) - bulwark - strikeArmorFromAge(opts.level));
       body.hp -= dealt;
       villainStrikes.push({
         date: day.date, label: sigFired ? villain.signature.label : villain.normal.label,
@@ -151,9 +149,9 @@ export function foldStreaks(
     }
     if (rankAtLeast(day.rank, 'C')) {
       const aegis = mods.aegisDisabled ? 0 : regenBonus * mods.enchantMult;
-      // VITALITY IS THE DAILY HEAL: VIT starts at 1 and grows +1 per S-day;
+      // VITALITY IS THE DAILY HEAL: VIT starts at 1, +1 per WORK-rune day;
       // high ages add their regen perk on top (regenAmount extra over base 5).
-      const vitHeal = 1 + body.sRankDays + (regenAmount(opts.level) - 5);
+      const vitHeal = 1 + body.workDays + (regenAmount(opts.level) - 5);
       const regen = Math.max(0, Math.round((vitHeal + aegis - mods.regenFlat) * mods.regenMult));
       body.hp = Math.min(body.maxHp, body.hp + regen);
       state.overall += 1;
@@ -170,6 +168,12 @@ export function foldStreaks(
       }
       state.cPlusRun = 0; // the day itself was sub-C
     }
+    // Day's end: bank today's stat gains for tomorrow (max 1 per stat).
+    if (day.proteinOk === true) body.proteinDays += 1;
+    if (day.waterOk === true) body.waterDays += 1;
+    if (day.workOk === true) body.workDays += 1;
+    if (rankAtLeast(day.rank, 'S')) body.sRankDays += 1;
+
     state.overallBest = Math.max(state.overallBest, state.overall);
 
     state.perfect = day.score === 100 ? state.perfect + 1 : 0;

@@ -81,6 +81,15 @@ async function runMigrations(): Promise<void> {
     await rescaleCurrentSiege(dayKey(new Date()));
     await kvSet('migr-siege-rescale-2', true);
   }
+  // m5: statboard runes — the seeded quests take their natural runes.
+  if (!(await kvGet('migr-runes-1', false))) {
+    for (const t of await db.templates.toArray()) {
+      if (t.rune !== undefined) continue;
+      if (t.name === 'GYM') await db.templates.put({ ...t, rune: 'physical' });
+      if (t.name === 'MORNING ROUTINE') await db.templates.put({ ...t, rune: 'mental' });
+    }
+    await kvSet('migr-runes-1', true);
+  }
 }
 
 export async function seedIfEmpty(): Promise<void> {
@@ -93,7 +102,7 @@ export async function seedIfEmpty(): Promise<void> {
   const templates: QuestTemplate[] = [
     {
       id: newId(), name: 'MORNING ROUTINE', categoryId: catId('RITES'), difficulty: 'easy',
-      kind: 'binary', main: false, optional: false, recurrence: { type: 'everyDay' },
+      kind: 'binary', main: false, optional: false, rune: 'mental', recurrence: { type: 'everyDay' },
       reminders: [], createdAt,
     },
     {
@@ -103,7 +112,7 @@ export async function seedIfEmpty(): Promise<void> {
     },
     {
       id: newId(), name: 'GYM', categoryId: catId('BODY'), difficulty: 'hard',
-      kind: 'workout', main: true, optional: false,
+      kind: 'workout', main: true, optional: false, rune: 'physical',
       recurrence: { type: 'daysOfWeek', days: [1, 3, 5] }, reminders: [], createdAt,
     },
   ];

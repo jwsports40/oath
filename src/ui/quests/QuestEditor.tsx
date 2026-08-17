@@ -6,10 +6,15 @@ import { useOath } from '../../app/store';
 import { newId } from '../../core/ids';
 import { dayKey, parseDay } from '../../core/dates';
 import { DIFFICULTY } from '../../core/types';
-import type { Difficulty, QuestTemplate, Recurrence } from '../../core/types';
+import type { Difficulty, QuestTemplate, Recurrence, RuneType } from '../../core/types';
 import { Panel, SectionLabel, DifficultyPips } from '../atoms';
 
 const DIFFICULTIES: Difficulty[] = ['trivial', 'easy', 'medium', 'hard', 'elite'];
+const RUNES: { rune: RuneType; label: string }[] = [
+  { rune: 'physical', label: 'PHYSICAL · +1 STR' },
+  { rune: 'mental', label: 'MENTAL · +1 WIL' },
+  { rune: 'work', label: 'WORK · +1 VIT' },
+];
 const REC_TYPES: { type: Recurrence['type']; label: string }[] = [
   { type: 'everyDay', label: 'EVERY DAY' },
   { type: 'weekdays', label: 'WEEKDAYS' },
@@ -176,18 +181,26 @@ export default function QuestEditor({ template, onClose }: {
             onChange={(e) => patch({ name: e.target.value })}
           />
 
-          <SectionLabel>Rune (category)</SectionLabel>
+          <SectionLabel>Rune</SectionLabel>
           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {categories.map((c) => (
+            {RUNES.map((r) => (
               <button
-                key={c.id}
+                key={r.rune}
                 type="button"
-                style={chipStyle(c.id === draft.categoryId)}
-                onClick={() => patch({ categoryId: c.id })}
+                style={chipStyle(r.rune === draft.rune)}
+                onClick={() => setDraft((d) => {
+                  const next = { ...d };
+                  if (next.rune === r.rune) delete next.rune; // tap again to clear
+                  else next.rune = r.rune;
+                  return next;
+                })}
               >
-                {c.name}
+                {r.label}
               </button>
             ))}
+          </div>
+          <div style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--text-faint)', marginTop: 4 }}>
+            A COMPLETED RUNE QUEST GROWS ITS STAT +1 AT NEXT DAWN — ONE PER DAY, UNCHECKING REVOKES IT.
           </div>
 
           <SectionLabel>Difficulty</SectionLabel>

@@ -28,8 +28,8 @@ export const CATALOG: LootDef[] = [
     values: { common: 2, rare: 3, mythic: 5 } },
   { key: 'enchKeenEdge', genre: 'enchant', name: 'KEEN EDGE', desc: '+{v}% SIEGE DAMAGE',
     values: { common: 0.05, rare: 0.10, mythic: 0.15 } },
-  { key: 'enchEmberWard', genre: 'enchant', name: 'EMBER WARD', desc: 'BOSS NIGHTLY HEAL −{v}PT',
-    values: { common: 0.0025, rare: 0.005, mythic: 0.0075 } },
+  { key: 'enchEmberWard', genre: 'enchant', name: 'EMBER WARD', desc: 'VILLAIN STRIKES −{v}',
+    values: { common: 0.05, rare: 0.10, mythic: 0.15 } },
   { key: 'enchRunedAegis', genre: 'enchant', name: 'RUNED AEGIS', desc: '+{v} HP REGEN ON GOOD DAYS',
     values: { common: 1, rare: 2, mythic: 3 } },
   // Totems — always mythic, one fixed power each
@@ -137,7 +137,7 @@ export function equippedIds(e: { slots?: string[]; token?: string; enchant?: str
 /** Aggregate live effects of the attached items (up to MAX_ATTACHED, any mix). */
 export interface LootEffects {
   xpAll: number; xpWorkout: number; xpMain: number; xpFirst: number;
-  strikeArmor: number; siegeDmg: number; healPtDown: number; regenBonus: number;
+  strikeArmor: number; siegeDmg: number; strikeShave: number; regenBonus: number;
   maxHpBonus: number; carryBonus: number;
   wardEmber: boolean; unbroken: boolean;
 }
@@ -145,7 +145,7 @@ export interface LootEffects {
 export function lootEffects(equipped: LootItem[]): LootEffects {
   const fx: LootEffects = {
     xpAll: 0, xpWorkout: 0, xpMain: 0, xpFirst: 0,
-    strikeArmor: 0, siegeDmg: 0, healPtDown: 0, regenBonus: 0,
+    strikeArmor: 0, siegeDmg: 0, strikeShave: 0, regenBonus: 0,
     maxHpBonus: 0, carryBonus: 0, wardEmber: false, unbroken: false,
   };
   for (const it of equipped) {
@@ -159,7 +159,7 @@ export function lootEffects(equipped: LootItem[]): LootEffects {
       case 'tokenDawn': fx.xpFirst += v; break;
       case 'enchBulwark': fx.strikeArmor += v; break;
       case 'enchKeenEdge': fx.siegeDmg += v; break;
-      case 'enchEmberWard': fx.healPtDown += v; break;
+      case 'enchEmberWard': fx.strikeShave += v; break;
       case 'enchRunedAegis': fx.regenBonus += v; break;
       case 'totemUnbroken': fx.unbroken = true; break;
       case 'totemUndyingFlame': fx.wardEmber = true; break;

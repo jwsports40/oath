@@ -55,7 +55,7 @@ export function regenAmount(level: number): number { return has(level, 90) ? 8 :
 
 export function maxHpFor(proteinDays: number): number {
   // Villain ladder balance: 100 base HP, +1 per protein-goal day, cap 150.
-  return Math.min(150, 100 + proteinDays);
+  return Math.min(150, 100 + 2 * proteinDays);
 }
 
 export interface BodyState {
@@ -63,6 +63,7 @@ export interface BodyState {
   maxHp: number;
   wounded: boolean;
   proteinDays: number;
+  workDays: number;      // days with a completed WORK-rune quest (feeds VIT)
   waterDays: number;
   sRankDays: number;
   emberSteals: number;

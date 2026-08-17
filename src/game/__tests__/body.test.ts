@@ -42,9 +42,9 @@ describe('perk helpers', () => {
     expect(regenAmount(1)).toBe(5);
     expect(regenAmount(90)).toBe(8);
   });
-  it('maxHp: 100 base, +1 per protein day, cap 150', () => {
+  it('maxHp: 100 base, +2 per protein day, cap 150', () => {
     expect(maxHpFor(0)).toBe(100);
-    expect(maxHpFor(10)).toBe(110);
+    expect(maxHpFor(10)).toBe(120);
     expect(maxHpFor(200)).toBe(150);
   });
   it('all 11 ages have a name and perk line', () => {
@@ -63,7 +63,7 @@ describe('foldStreaks body integration (villain ladder)', () => {
       day('F', 10, { date: '2026-08-06' }),   // coin hits: band-0 sig = 5 dmg
     ];
     const r = foldStreaks(days, { level: 1, villainByWeek: { '2026-08-03': 'darkDungeonKnight' } });
-    expect(r.body.maxHp).toBe(102);
+    expect(r.body.maxHp).toBe(104); // 2 protein days x2, applied at next dawn
     // Daily normal blows (3) vs VIT heal 1 chip −2 per C day, then the sig 5.
     expect(r.body.hp).toBe(89);
     expect(r.body.proteinDays).toBe(2);
@@ -88,7 +88,7 @@ describe('foldStreaks body integration (villain ladder)', () => {
   it('boss strikes first: at 0 HP it steals an ember BEFORE the streak-save', () => {
     // Colossus-in-reverse: shrink the pool so strikes are lethal (mechanism test).
     const long: DayOutcome[] = [
-      ...Array.from({ length: 14 }, (_, i) => day('S', 80, { date: `d${i}` })),
+      ...Array.from({ length: 14 }, (_, i) => day('S', 80, { date: `d${i}`, workOk: true })),
       day('F', 10, { date: '2026-08-06' }),  // coin hits: sig 5: hp 5 -> 0 -> STEAL, hp=ceil(5/2)=3
     ];
     const r = foldStreaks(long, { level: 1, effects: { maxHpBonus: -95 }, villainByWeek: { '2026-08-03': 'darkDungeonKnight' } });

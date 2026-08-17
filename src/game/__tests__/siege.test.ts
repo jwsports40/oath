@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { SiegeState } from '../../core/types';
-import { BOSS_NAMES, KILL_XP, newSiege, dealDamage, bossHeal } from '../siege';
+import { BOSS_NAMES, KILL_XP, newSiege, dealDamage } from '../siege';
 
 const WEEK = '2026-08-17'; // a Monday
 const NEXT_WEEK = '2026-08-24';
@@ -114,28 +114,6 @@ describe('dealDamage', () => {
   });
 });
 
-describe('bossHeal', () => {
-  it('heals round(0.015*maxHp): maxHp 9100 -> +137 (136.5 -> 137)', () => {
-    let s = newSiege(WEEK, 1140);
-    s = dealDamage(s, 400, false, 'X', '2026-08-17T09:00:00'); // hp 8700
-    const healed = bossHeal(s);
-    expect(healed.hp).toBe(8700 + 137);
-  });
-
-  it('caps at maxHp', () => {
-    let s = newSiege(WEEK, 1140);
-    s = dealDamage(s, 40, false, 'X', '2026-08-17T09:00:00'); // hp 9060
-    const healed = bossHeal(s);
-    expect(healed.hp).toBe(9100);
-  });
-
-  it('does not resurrect a killed boss', () => {
-    let s = newSiege(WEEK, 1140);
-    s = { ...s, hp: 100 };
-    s = dealDamage(s, 300, true, 'FINAL BLOW', '2026-08-22T18:00:00');
-    expect(bossHeal(s).hp).toBe(0);
-  });
-});
 
 describe('KILL_XP', () => {
   it('is 150', () => {

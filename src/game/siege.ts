@@ -1,5 +1,6 @@
 // game/siege.ts — weekly boss engine. Pure and deterministic: only completing
-// real quests deals damage; main quests crit x1.5; sub-C days heal the boss.
+// real quests deals damage; main quests crit x1.5. The boss NEVER heals — its
+// Sunday pool and pinned strikes hold all week.
 // Kill -> Crest Fragment + KILL_XP; overkill carries 25% into next week.
 // Survival -> the boss returns renamed 'X RISEN' at +5% maxHp per generation.
 
@@ -97,10 +98,4 @@ export function dealDamage(
     overkill: s.overkill + excess,
     log: [...s.log, { at, label, amount: damage, crit: isMain }],
   };
-}
-
-/** Boss heals round(1.5% of maxHp), capped at maxHp; no effect once killed. */
-export function bossHeal(s: SiegeState, pct = 0.015): SiegeState {
-  if (s.killed) return s;
-  return { ...s, hp: Math.min(s.maxHp, s.hp + round(pct * s.maxHp)) };
 }

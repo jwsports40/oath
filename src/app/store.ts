@@ -267,7 +267,7 @@ export const useOath = create<OathStore>()((set, get) => {
     },
     live: { score: 0, rank: 'F', pct: 0 },
     streaks: INITIAL_STREAKS,
-    body: { hp: 20, maxHp: 20, wounded: false, proteinDays: 0, waterDays: 0, sRankDays: 0, emberSteals: 0 },
+    body: { hp: 20, maxHp: 20, wounded: false, proteinDays: 0, workDays: 0, waterDays: 0, sRankDays: 0, emberSteals: 0 },
     perQuestStreaks: {},
     vigor: INITIAL_VIGOR,
     vigorBand: bandOf(INITIAL_VIGOR),
@@ -381,6 +381,8 @@ export const useOath = create<OathStore>()((set, get) => {
           };
           delete synced.target;
           delete synced.unit;
+          delete synced.rune;
+          if (t.rune !== undefined) synced.rune = t.rune;
           if (t.target !== undefined) synced.target = t.target;
           if (t.unit !== undefined) synced.unit = t.unit;
           await db.instances.put(synced);
@@ -610,7 +612,7 @@ export const useOath = create<OathStore>()((set, get) => {
       const loot = (await db.loot.toArray()).sort((a, b) => (a.obtainedAt > b.obtainedAt ? -1 : 1));
       const equipped = await kvGet<Equipped>('equipped', {});
       const streaks = await kvGet<StreakState>('streaks', INITIAL_STREAKS);
-      const body = await kvGet<BodyState>('body', { hp: 20, maxHp: 20, wounded: false, proteinDays: 0, waterDays: 0, sRankDays: 0, emberSteals: 0 });
+      const body = await kvGet<BodyState>('body', { hp: 20, maxHp: 20, wounded: false, proteinDays: 0, workDays: 0, waterDays: 0, sRankDays: 0, emberSteals: 0 });
       const vigor = await kvGet<number>('vigor', INITIAL_VIGOR);
 
       const completions = await db.completions.toArray();
