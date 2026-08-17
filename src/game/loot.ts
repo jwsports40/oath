@@ -30,7 +30,7 @@ export const CATALOG: LootDef[] = [
     values: { common: 0.05, rare: 0.10, mythic: 0.15 } },
   { key: 'enchEmberWard', genre: 'enchant', name: 'EMBER WARD', desc: 'VILLAIN STRIKES −{v}',
     values: { common: 0.05, rare: 0.10, mythic: 0.15 } },
-  { key: 'enchRunedAegis', genre: 'enchant', name: 'RUNED AEGIS', desc: '+{v} HP REGEN ON GOOD DAYS',
+  { key: 'enchRunedAegis', genre: 'enchant', name: 'RUNED AEGIS', desc: '+{v} HP REGEN ON S DAYS',
     values: { common: 1, rare: 2, mythic: 3 } },
   // Totems — always mythic, one fixed power each
   { key: 'totemUnbroken', genre: 'totem', name: 'TOTEM OF THE UNBROKEN',

@@ -148,12 +148,14 @@ export function foldStreaks(
       }
     }
     if (rankAtLeast(day.rank, 'C')) {
-      const aegis = mods.aegisDisabled ? 0 : regenBonus * mods.enchantMult;
-      // VITALITY IS THE DAILY HEAL: VIT starts at 1, +1 per WORK-rune day;
-      // high ages add their regen perk on top (regenAmount extra over base 5).
-      const vitHeal = 1 + body.workDays + (regenAmount(opts.level) - 5);
-      const regen = Math.max(0, Math.round((vitHeal + aegis - mods.regenFlat) * mods.regenMult));
-      body.hp = Math.min(body.maxHp, body.hp + regen);
+      // The heal is an S-TIER reward: VIT (1 + work-rune days) restores only
+      // on S days; high ages add their regen perk (regenAmount over base 5).
+      if (rankAtLeast(day.rank, 'S')) {
+        const aegis = mods.aegisDisabled ? 0 : regenBonus * mods.enchantMult;
+        const vitHeal = 1 + body.workDays + (regenAmount(opts.level) - 5);
+        const regen = Math.max(0, Math.round((vitHeal + aegis - mods.regenFlat) * mods.regenMult));
+        body.hp = Math.min(body.maxHp, body.hp + regen);
+      }
       state.overall += 1;
       state.cPlusRun += 1;
       if (state.cPlusRun % 7 === 0 && state.embers < capacity) state.embers += 1;

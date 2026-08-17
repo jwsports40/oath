@@ -550,15 +550,37 @@ export const useOath = create<OathStore>()((set, get) => {
     async openChest(chestId: string): Promise<void> {
       const chest = await db.chests.get(chestId);
       if (chest === undefined || chest.openedAt !== undefined) return;
-      const roll = rollChest(chest.kind, Math.random);
+      const owned = await db.loot.toArray();
+      const TIER_UP: Record<string, LootTier> = { common: 'rare', rare: 'mythic', mythic: 'mythic' };
+      // Duplicate rule: rolling an item you own UPGRADES the owned copy one
+      // tier; if it is already mythic the chest reshuffles to something else.
+      let roll = rollChest(chest.kind, Math.random);
+      for (let tries = 0; tries < 24; tries++) {
+        const dupe = owned.find((o) => o.itemKey === roll.itemKey);
+        if (dupe === undefined || dupe.tier !== 'mythic') break;
+        roll = rollChest(chest.kind, Math.random); // owned at mythic — reshuffle
+      }
       const def = CATALOG.find((d) => d.key === roll.itemKey);
       if (def === undefined) return;
+      const now = new Date().toISOString();
+      const dupe = owned.find((o) => o.itemKey === roll.itemKey);
+      if (dupe !== undefined && dupe.tier !== 'mythic' && def.values !== undefined) {
+        const upgraded: LootItem = { ...dupe, tier: TIER_UP[dupe.tier] };
+        await db.loot.put(upgraded);
+        await db.chests.put({ ...chest, openedAt: now });
+        pushEffects([{
+          kind: 'loot', name: `${upgraded.name} ↑`, tier: upgraded.tier, itemKey: upgraded.itemKey,
+          desc: lootDesc(upgraded), chest: CHEST_NAMES[chest.kind],
+        }]);
+        await get().refresh();
+        return;
+      }
       const item: LootItem = {
         id: newId(), chestId, itemKey: roll.itemKey, genre: roll.genre, tier: roll.tier,
-        name: def.name, obtainedAt: new Date().toISOString(),
+        name: def.name, obtainedAt: now,
       };
       await db.loot.add(item);
-      await db.chests.put({ ...chest, openedAt: item.obtainedAt });
+      await db.chests.put({ ...chest, openedAt: now });
       pushEffects([{
         kind: 'loot', name: item.name, tier: item.tier, itemKey: item.itemKey,
         desc: lootDesc(item), chest: CHEST_NAMES[chest.kind],

@@ -79,19 +79,25 @@ export default function Codex({ onClose }: { onClose: () => void }) {
             </button>
           </div>
 
-          <SectionLabel>THE CHEST</SectionLabel>
-          {CHEST_ROWS.map((c) => (
-            <div key={c.kind} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--hairline)' }}>
-              <img src={chestPng} alt="" style={{ width: 40, height: 40, imageRendering: 'pixelated' }} />
-              <div>
-                <div style={{ ...bodyText, color: 'var(--gild-bright)' }}>{CHEST_NAMES[c.kind]}</div>
-                <div style={{ ...bodyText, fontSize: 14, color: 'var(--text-low)' }}>{c.earned}</div>
-                <div style={{ ...bodyText, fontSize: 14, color: 'var(--text-faint)' }}>{c.odds}</div>
-              </div>
-            </div>
-          ))}
-          <div style={{ ...bodyText, fontSize: 14, color: 'var(--text-faint)', margin: '4px 0 10px' }}>
-            TIER ROLL: 60% COMMON · 30% RARE · 10% MYTHIC. TOTEMS ARE ALWAYS MYTHIC.
+
+          <SectionLabel>THE KNIGHT — STATBOARD</SectionLabel>
+          <div style={{ ...bodyText, fontSize: 14, color: 'var(--text-low)', marginBottom: 10, lineHeight: 1.5 }}>
+            EVERY STAT IS EARNED FROM REAL DAYS — GAINS LAND AT THE NEXT DAWN, ONE PER STAT PER DAY,
+            AND UNCHECKING A QUEST REVOKES ITS GAIN.
+            STR +1 PER DAY WITH A COMPLETED PHYSICAL-RUNE QUEST (STRONGER WORKOUT XP).
+            WIL +1 PER MENTAL-RUNE DAY (SHARPER MAIN-QUEST CRITS).
+            VIT +1 PER WORK-RUNE DAY — VIT IS YOUR HEAL, RESTORED ONLY ON S-TIER DAYS.
+            MAX HP +2 PER DAY YOU END AT OR OVER YOUR PROTEIN GOAL (OVERSHOOTING NEVER HURTS).
+            STAM +1 PER DAY YOU HIT OR BEAT YOUR WATER GOAL.
+          </div>
+
+          <SectionLabel>DAYS, RANKS &amp; EMBERS</SectionLabel>
+          <div style={{ ...bodyText, fontSize: 14, color: 'var(--text-low)', marginBottom: 10, lineHeight: 1.5 }}>
+            EACH DAY SEALS AT MIDNIGHT AND EARNS A RANK, F THROUGH S+.
+            C OR BETTER KEEPS YOUR STREAK ALIVE; EVERY 7 STRAIGHT C+ DAYS BANKS AN EMBER.
+            ON A BAD DAY AN EMBER AUTO-BURNS TO SAVE THE STREAK — BUT THE BOSS STRIKES FIRST,
+            AND IF IT DROPS YOU TO 0 HP IT STEALS AN EMBER BEFORE THE SAVE, RALLYING YOU AT HALF HP.
+            QUESTS ONLY APPEAR — AND ONLY COUNT — ON THE DAYS THEY ARE SCHEDULED.
           </div>
 
           <SectionLabel>THE SIEGE</SectionLabel>
@@ -102,7 +108,7 @@ export default function Codex({ onClose }: { onClose: () => void }) {
             ON A BAD DAY (BELOW C) A CHARGED SIGNATURE HAS 50/50 ODDS TO FIRE INSTEAD;
             A MISS KEEPS IT CHARGED, A HIT CURSES YOUR NEXT DAY FOR 24H AND RECHARGES FOR 2 DAYS.
             KILL THE BOSS AND THE STRIKES STOP FOR THE WEEK.
-            VITALITY IS YOUR DAILY HEAL — EVERY C-OR-BETTER DAY RESTORES YOUR VIT IN HP.
+            VITALITY IS YOUR DAILY HEAL — ONLY AN S-TIER DAY RESTORES YOUR VIT IN HP.
             VIT STARTS AT 1 AND GROWS +1 PER WORK-RUNE DAY; THE BOSS'S BLOWS ARE SIZED TO OUTPACE IT.
             THE BOSS NEVER HEALS AND ITS SUNDAY STRENGTH IS PINNED ALL WEEK.
             RUNES: PHYSICAL +1 STR · MENTAL +1 WIL · WORK +1 VIT — ONE PER DAY, AT NEXT DAWN.
@@ -140,6 +146,22 @@ export default function Codex({ onClose }: { onClose: () => void }) {
             ATTACK DAMAGE SCALES TO YOUR KNIGHT WHEN THE BOSS RISES. ULTS DEAL 1.5× A NORMAL BLOW.
           </div>
 
+          <SectionLabel>THE CHEST</SectionLabel>
+          {CHEST_ROWS.map((c) => (
+            <div key={c.kind} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '6px 0', borderBottom: '1px solid var(--hairline)' }}>
+              <img src={chestPng} alt="" style={{ width: 40, height: 40, imageRendering: 'pixelated' }} />
+              <div>
+                <div style={{ ...bodyText, color: 'var(--gild-bright)' }}>{CHEST_NAMES[c.kind]}</div>
+                <div style={{ ...bodyText, fontSize: 14, color: 'var(--text-low)' }}>{c.earned}</div>
+                <div style={{ ...bodyText, fontSize: 14, color: 'var(--text-faint)' }}>{c.odds}</div>
+              </div>
+            </div>
+          ))}
+          <div style={{ ...bodyText, fontSize: 14, color: 'var(--text-faint)', margin: '4px 0 10px' }}>
+            TIER ROLL: 60% COMMON · 30% RARE · 10% MYTHIC. TOTEMS ARE ALWAYS MYTHIC.
+            ROLL A SPOIL YOU ALREADY OWN AND IT UPGRADES ONE TIER INSTEAD — ALREADY MYTHIC? THE CHEST RESHUFFLES.
+          </div>
+
           <SectionLabel>TOKENS — XP</SectionLabel>
           {tokens.map((d) => <TieredItem key={d.key} def={d} />)}
 
@@ -160,6 +182,14 @@ export default function Codex({ onClose }: { onClose: () => void }) {
                 </div>
               </div>
             ))}
+          </div>
+
+          <SectionLabel>DEEDS</SectionLabel>
+          <div style={{ ...bodyText, fontSize: 14, color: 'var(--text-low)', margin: '4px 0 10px', lineHeight: 1.5 }}>
+            GIANT SLAYER COMPLETES WHEN THIS WEEK'S BOSS FALLS AND RESETS WHEN THE NEXT ONE RISES.
+            IRON WILL ASKS FOR A PHYSICAL QUEST 10 DAYS STRAIGHT; HYDRATED, YOUR WATER GOAL 7 DAYS STRAIGHT.
+            THE LEVEL PATH EVOLVES THE DAY AFTER EACH STAGE: GETTING ON TRACK (25) → ALMOST A THREAT (50)
+            → ACTUALLY A THREAT (75) → LEGEND (100).
           </div>
         </div>
       </div>

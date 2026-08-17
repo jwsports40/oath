@@ -64,8 +64,8 @@ describe('foldStreaks body integration (villain ladder)', () => {
     ];
     const r = foldStreaks(days, { level: 1, villainByWeek: { '2026-08-03': 'darkDungeonKnight' } });
     expect(r.body.maxHp).toBe(104); // 2 protein days x2, applied at next dawn
-    // Daily normal blows (3) vs VIT heal 1 chip −2 per C day, then the sig 5.
-    expect(r.body.hp).toBe(89);
+    // Daily normal blows (3) on C days with NO heal (S-only), then the sig 5.
+    expect(r.body.hp).toBe(86);
     expect(r.body.proteinDays).toBe(2);
     expect(r.sigCooldown).toBe(2);
     // 24h status lands on the FOLLOWING day, so none recorded yet.
