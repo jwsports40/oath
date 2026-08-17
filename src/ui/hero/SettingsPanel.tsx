@@ -201,7 +201,7 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
   return (
     <div
       style={{
-        position: 'fixed', inset: 0, zIndex: 70,
+        position: 'fixed', inset: 0, zIndex: 200,
         background: 'rgba(5,7,5,0.94)',
         display: 'flex', justifyContent: 'center',
         padding: 16, overflowY: 'auto',

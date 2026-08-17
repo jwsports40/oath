@@ -55,7 +55,7 @@ export default function Codex({ onClose }: { onClose: () => void }) {
   return (
     <div
       style={{
-        position: 'fixed', inset: 0, zIndex: 80, background: '#000',
+        position: 'fixed', inset: 0, zIndex: 200, background: '#000',
         overflowY: 'auto', padding: '16px 16px 96px', display: 'flex', justifyContent: 'center',
       }}
     >
