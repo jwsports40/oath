@@ -202,7 +202,7 @@ export function SiegeView({
             {/* Signature charge: two diamonds; one clears each daily reset. */}
             <span style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
               <span style={{ fontFamily: 'var(--font-label)', fontSize: 6, letterSpacing: '0.15em', color: sigCooldown === 0 ? 'var(--ember)' : 'var(--text-faint)' }}>
-                {sigCooldown === 0 ? 'SIGNATURE READY' : 'CHARGING'}
+                {sigCooldown === 0 ? 'SIGNATURE CHARGED · 50/50' : 'CHARGING'}
               </span>
               {[0, 1].map((k) => (
                 <span

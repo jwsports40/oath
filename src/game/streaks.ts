@@ -13,7 +13,8 @@ import {
 } from './body';
 import type { LootEffects } from './loot';
 import {
-  NO_MODS, SIGNATURE_COOLDOWN_DAYS, mergeMods, villainByKey, villainFor, type StatusMods,
+  NO_MODS, SIGNATURE_COOLDOWN_DAYS, mergeMods, signatureCoin, villainByKey, villainFor,
+  type StatusMods,
 } from './villains';
 import { weekStartOf } from '../core/dates';
 
@@ -98,14 +99,15 @@ export function foldStreaks(
       state.cPlusRun += 1;
       if (state.cPlusRun % 7 === 0 && state.embers < capacity) state.embers += 1;
     } else {
-      // The villain strikes FIRST. Signature when charged, else the normal blow.
+      // The villain strikes FIRST. A charged signature fires on a 50/50 coin
+      // (deterministic per date+villain); a miss keeps it charged.
       const week = weekStartOf(day.date);
       const pinned = opts.villainByWeek?.[week];
       const villain = (pinned !== undefined ? villainByKey(pinned) : undefined)
         ?? villainFor(opts.level, week);
       let dmg: number;
       const pinnedDmg = opts.strikesByWeek?.[week];
-      if (sigCd === 0) {
+      if (sigCd === 0 && signatureCoin(day.date, villain.key)) {
         dmg = pinnedDmg?.sig ?? villain.signature.dmg;
         sigCd = SIGNATURE_COOLDOWN_DAYS;
         pendingStatus = {

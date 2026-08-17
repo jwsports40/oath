@@ -108,15 +108,15 @@ describe('perQuestStreak', () => {
 
 describe('pinned knight-scaled strikes', () => {
   it('a sub-C day uses the week siege pinned damage instead of roster numbers', () => {
-    // 2026-08-03 is a Monday (week start). First bad day fires the signature.
-    const days = [day('2026-08-03', 'F', 20)];
+    // 2026-08-06 is a coin-hit day for darkDungeonKnight: the signature fires.
+    const days = [day('2026-08-06', 'F', 20)];
     const week = '2026-08-03';
     const pinned = foldStreaks(days, {
       level: 1,
       villainByWeek: { [week]: 'darkDungeonKnight' },
       strikesByWeek: { [week]: { normal: 20, sig: 30 } },
     });
-    // Signature fires on the first bad day: 30 damage (roster value is 5).
+    // Signature fires (coin hit): 30 damage (roster value is 5).
     expect(pinned.body.hp).toBe(100 - 30);
 
     const roster = foldStreaks(days, {
@@ -128,9 +128,9 @@ describe('pinned knight-scaled strikes', () => {
   it('normal strikes after the signature also use the pinned value', () => {
     const week = '2026-08-03';
     const days = [
-      day('2026-08-03', 'F', 20),  // signature: 30
-      day('2026-08-04', 'F', 20),  // cooldown: normal 20
-      day('2026-08-05', 'F', 20),  // recharged: signature 30 again
+      day('2026-08-06', 'F', 20),  // coin hit: signature 30
+      day('2026-08-07', 'F', 20),  // cooldown: normal 20
+      day('2026-08-08', 'F', 20),  // recharged + coin hit: signature 30
     ];
     const { body } = foldStreaks(days, {
       level: 1,

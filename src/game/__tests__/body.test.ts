@@ -55,13 +55,14 @@ describe('perk helpers', () => {
 });
 
 describe('foldStreaks body integration (villain ladder)', () => {
-  it('regens on C+ days; a charged villain opens with its SIGNATURE on a bad day', () => {
+  it('regens on C+ days; a charged villain fires its SIGNATURE when the coin hits', () => {
     const days: DayOutcome[] = [
       day('C', 60, { date: '2026-08-03', proteinOk: true }),
       day('C', 60, { date: '2026-08-04', proteinOk: true }),
-      day('F', 10, { date: '2026-08-05' }),   // signature (charged): band-0 sig = 5 dmg
+      day('C', 60, { date: '2026-08-05', proteinOk: false }),
+      day('F', 10, { date: '2026-08-06' }),   // coin hits: band-0 sig = 5 dmg
     ];
-    const r = foldStreaks(days, { level: 1 });
+    const r = foldStreaks(days, { level: 1, villainByWeek: { '2026-08-03': 'darkDungeonKnight' } });
     expect(r.body.maxHp).toBe(102);
     expect(r.body.hp).toBe(97);              // 102 − 5 signature
     expect(r.body.proteinDays).toBe(2);
@@ -69,22 +70,27 @@ describe('foldStreaks body integration (villain ladder)', () => {
     // 24h status lands on the FOLLOWING day, so none recorded yet.
     expect(Object.keys(r.statusByDate)).toHaveLength(0);
   });
-  it('signature fires every other bad day; status lands on the following day', () => {
-    const days: DayOutcome[] = ['2026-08-03', '2026-08-04', '2026-08-05', '2026-08-06']
+  it('charged signature fires only when the coin hits; a miss keeps it charged', () => {
+    // Coin (darkDungeonKnight): 03 no, 04 no, 05 no, 06 SIG, 07 cooldown.
+    const days: DayOutcome[] = ['2026-08-03', '2026-08-04', '2026-08-05', '2026-08-06', '2026-08-07']
       .map((d) => day('F', 10, { date: d }));
-    const r = foldStreaks(days, { level: 1 });
-    // sig day1 -> status day2; day2 normal (cd); day3 sig again -> status day4
-    expect(r.statusByDate['2026-08-04']).toBeDefined();
+    const r = foldStreaks(days, { level: 1, villainByWeek: { '2026-08-03': 'darkDungeonKnight' } });
+    // Three coin-miss normals (3 each), the signature (5), one cooldown normal (3).
+    expect(r.body.hp).toBe(100 - 3 - 3 - 3 - 5 - 3);
+    // Only the signature curses: it lands on the FOLLOWING day.
+    expect(r.statusByDate['2026-08-04']).toBeUndefined();
     expect(r.statusByDate['2026-08-05']).toBeUndefined();
-    expect(r.statusByDate['2026-08-06']).toBeDefined();
+    expect(r.statusByDate['2026-08-06']).toBeUndefined();
+    expect(r.statusByDate['2026-08-07']).toBeDefined();
+    expect(r.sigCooldown).toBe(1);
   });
   it('boss strikes first: at 0 HP it steals an ember BEFORE the streak-save', () => {
     // Colossus-in-reverse: shrink the pool so strikes are lethal (mechanism test).
     const long: DayOutcome[] = [
       ...Array.from({ length: 14 }, (_, i) => day('C', 60, { date: `d${i}` })),
-      day('F', 10, { date: 'f1' }),  // signature 5: hp 5 -> 0 -> STEAL (2->1), hp=ceil(5/2)=3
+      day('F', 10, { date: '2026-08-06' }),  // coin hits: sig 5: hp 5 -> 0 -> STEAL, hp=ceil(5/2)=3
     ];
-    const r = foldStreaks(long, { level: 1, effects: { maxHpBonus: -95 } });
+    const r = foldStreaks(long, { level: 1, effects: { maxHpBonus: -95 }, villainByWeek: { '2026-08-03': 'darkDungeonKnight' } });
     expect(r.body.maxHp).toBe(5);
     expect(r.body.emberSteals).toBe(1);
     expect(r.body.hp).toBe(3);

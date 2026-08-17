@@ -123,6 +123,20 @@ export const VILLAINS: Villain[] = [
 export const SIGNATURE_COOLDOWN_DAYS = 2;
 
 /**
+ * Deterministic 50/50: does a CHARGED signature actually fire on this date?
+ * Hash of date+villain so every device recomputes the same history. A miss
+ * keeps the signature charged for the next bad day.
+ */
+export function signatureCoin(date: string, villainKey: string): boolean {
+  let h = 0x811c9dc5;
+  for (const ch of `${date}:${villainKey}`) {
+    h ^= ch.charCodeAt(0);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return ((h >>> 13) & 1) === 1;
+}
+
+/**
  * The villain a given week belongs to: the player's band supplies the pair,
  * ISO week parity alternates between them. Level 100 is always the final boss.
  */
