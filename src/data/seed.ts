@@ -31,17 +31,17 @@ export const INITIAL_STREAKS: StreakState = {
   sRank: 0, sRankBest: 0, embers: 0, cPlusRun: 0,
 };
 
-// spec §9 — the nine Deeds
-const ACHIEVEMENTS: Achievement[] = [
+// The Deeds. GIANT SLAYER resets each week's boss; the level path advances
+// through four names (25/50/75/100), each revealed the day after the last.
+export const ACHIEVEMENTS: Achievement[] = [
   { id: 'beginning', name: 'THE BEGINNING', desc: 'Complete your first day', target: 1, progress: 0 },
-  { id: 'ironWill', name: 'IRON WILL', desc: 'Gym ×10', target: 10, progress: 0 },
-  { id: 'hydrated', name: 'HYDRATED', desc: 'Hit the water target 30 days', target: 30, progress: 0 },
+  { id: 'ironWill', name: 'IRON WILL', desc: 'A physical quest every day for 10 days', target: 10, progress: 0 },
+  { id: 'hydrated', name: 'HYDRATED', desc: 'Hit the water target 7 days straight', target: 7, progress: 0 },
   { id: 'perfectWeek', name: 'PERFECT WEEK', desc: '7 perfect days', target: 7, progress: 0 },
   { id: 'consistency', name: 'CONSISTENCY', desc: '100 quests completed', target: 100, progress: 0 },
-  { id: 'sRank', name: 'S-RANK', desc: 'First S day', target: 1, progress: 0 },
-  { id: 'siegebreaker', name: 'SIEGEBREAKER', desc: 'First boss kill', target: 1, progress: 0 },
+  { id: 'giantSlayer', name: 'GIANT SLAYER', desc: "Slay this week's boss — resets when the next rises", target: 1, progress: 0 },
   { id: 'crest', name: 'CREST', desc: 'Forge 3 fragments', target: 3, progress: 0 },
-  { id: 'legend', name: 'LEGEND', desc: 'Reach level 100', target: 1, progress: 0 },
+  { id: 'levelPath', name: 'GETTING ON TRACK', desc: 'Reach level 25', target: 25, progress: 0 },
 ];
 
 const STARTER_EXERCISES = ['Bench Press', 'Squat', 'Deadlift', 'Overhead Press', 'Barbell Row', 'Pull-Up'];
@@ -80,6 +80,17 @@ async function runMigrations(): Promise<void> {
     const { rescaleCurrentSiege } = await import('./lifecycle');
     await rescaleCurrentSiege(dayKey(new Date()));
     await kvSet('migr-siege-rescale-2', true);
+  }
+  // m6: the Deeds redesigned — streak-based IRON WILL/HYDRATED, weekly
+  // GIANT SLAYER, staged level path. Unmentioned deeds keep their progress.
+  if (!(await kvGet('migr-deeds-1', false))) {
+    const old = await kvGet<Achievement[]>('achievements', []);
+    const keep = new Map(old.map((a) => [a.id, a]));
+    await kvSet('achievements', ACHIEVEMENTS.map((a) =>
+      ['beginning', 'perfectWeek', 'consistency', 'crest'].includes(a.id)
+        ? keep.get(a.id) ?? a
+        : a));
+    await kvSet('migr-deeds-1', true);
   }
   // m5: statboard runes — the seeded quests take their natural runes.
   if (!(await kvGet('migr-runes-1', false))) {

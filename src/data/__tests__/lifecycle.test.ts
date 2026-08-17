@@ -216,11 +216,11 @@ describe('siege kill rewards — +150 XP, fragments, crest forging, achievements
 
     const achievements = await kvGet<Achievement[]>('achievements', []);
     const byId = new Map(achievements.map((a) => [a.id, a]));
-    expect(byId.get('siegebreaker')).toMatchObject({ progress: 1 });
-    expect(byId.get('siegebreaker')!.unlockedAt).toBeDefined();
+    expect(byId.get('giantSlayer')).toMatchObject({ progress: 1 });
+    expect(byId.get('giantSlayer')!.unlockedAt).toBeDefined();
     expect(byId.get('crest')).toMatchObject({ progress: 3 });
     expect(byId.get('crest')!.unlockedAt).toBeDefined();
-    expect(byId.get('ironWill')).toMatchObject({ progress: 1 });
+    expect(byId.get('ironWill')).toMatchObject({ progress: 0 }); // physical-day streaks count sealed days only
     expect(byId.get('consistency')).toMatchObject({ progress: 1 });
 
     // XP total: 300 prior kills + 50 gym + 150 kill

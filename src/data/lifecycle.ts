@@ -9,7 +9,7 @@ import { addDays, dayKey, eachDay, romanNumeral, weekStartOf } from '../core/dat
 import { isScheduled, scheduledDatesInRange } from './recurrence';
 import { dayScore, dayRank, toScoreable } from '../game/scoring';
 import { xpAward, levelForXp } from '../game/xp';
-import { foldStreaks, perQuestStreak, rankAtLeast, type DayOutcome } from '../game/streaks';
+import { foldStreaks, perQuestStreak, type DayOutcome } from '../game/streaks';
 import { nextVigor, INITIAL_VIGOR } from '../game/vigor';
 import { newSiege, dealDamage, KILL_XP } from '../game/siege';
 import {
@@ -536,29 +536,59 @@ export async function recomputeDerived(): Promise<void> {
   const instanceById = new Map(instances.map((i) => [i.id, i]));
   const templateById = new Map(templates.map((t) => [t.id, t]));
   const killCount = events.filter((e) => e.source === 'siegeKill').length;
-  const workoutCompletions = completions
-    .filter((c) => templateById.get(c.templateId)?.kind === 'workout').length;
-  const hydratedDays = new Set(
-    completions
-      .filter((c) => {
-        const i = instanceById.get(c.instanceId);
-        return i !== undefined && i.kind === 'quantity' && i.unit === 'oz';
-      })
-      .map((c) => c.date),
-  ).size;
+  void instanceById; void templateById;
+  // Longest consecutive-day run of a sealed-day flag.
+  const bestRun = (flag: (o: DayOutcome) => boolean): number => {
+    let best = 0;
+    let run = 0;
+    for (const o of outcomes) {
+      run = flag(o) ? run + 1 : 0;
+      best = Math.max(best, run);
+    }
+    return best;
+  };
   const progressById: Record<string, number> = {
     beginning: Math.min(1, sealed.length),
-    ironWill: workoutCompletions,
-    hydrated: hydratedDays,
+    ironWill: bestRun((o) => o.physicalOk === true),
+    hydrated: bestRun((o) => o.waterOk === true),
     perfectWeek: streaks.perfectBest,
     consistency: completions.length,
-    sRank: sealed.some((d) => rankAtLeast(d.rank, 'S')) ? 1 : 0,
-    siegebreaker: Math.min(1, killCount),
     crest: killCount,
-    legend: level >= 100 ? 1 : 0,
   };
+  const todayKey = dayKey(new Date());
+  const currentSiege = await db.sieges.get(weekStartOf(todayKey));
+  const LEVEL_TIERS: [number, string][] = [
+    [25, 'GETTING ON TRACK'], [50, 'ALMOST A THREAT'],
+    [75, 'ACTUALLY A THREAT'], [100, 'LEGEND'],
+  ];
   const achievements = await kvGet<Achievement[]>('achievements', []);
   const refreshed = achievements.map((a) => {
+    if (a.id === 'giantSlayer') {
+      // Completed by killing THIS week's boss; a new boss resets it.
+      const killed = currentSiege?.killed === true;
+      const next: Achievement = { ...a, progress: killed ? 1 : 0 };
+      if (killed) {
+        if (next.unlockedAt === undefined) next.unlockedAt = now;
+      } else {
+        delete next.unlockedAt;
+      }
+      return next;
+    }
+    if (a.id === 'levelPath') {
+      // Staged path: the completed stage holds until the NEXT day, then the
+      // deed resets under its next name (25 -> 50 -> 75 -> 100).
+      let next: Achievement = { ...a };
+      if (next.unlockedAt !== undefined && dayKey(new Date(next.unlockedAt)) < todayKey) {
+        const idx = LEVEL_TIERS.findIndex(([t]) => t === next.target);
+        const later = idx >= 0 ? LEVEL_TIERS[idx + 1] : undefined;
+        if (later !== undefined) {
+          next = { id: a.id, name: later[1], desc: `Reach level ${later[0]}`, target: later[0], progress: 0 };
+        }
+      }
+      next.progress = Math.min(next.target, level);
+      if (next.unlockedAt === undefined && level >= next.target) next.unlockedAt = now;
+      return next;
+    }
     const progress = Math.min(a.target, progressById[a.id] ?? a.progress);
     const next: Achievement = { ...a, progress };
     if (next.unlockedAt === undefined && progress >= a.target) next.unlockedAt = now;

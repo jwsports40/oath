@@ -46,7 +46,7 @@ describe('OathStore', () => {
     expect(s.character.title).toBe('ROOKIE KNIGHT');
     expect(s.character.armorAge[1]).toBe('ROOKIE KNIGHT');
     expect(s.character.next).toBe(40);
-    expect(s.achievements).toHaveLength(9);
+    expect(s.achievements).toHaveLength(8);
     expect(s.week).toHaveLength(7);
     expect(s.week.filter((d) => d.isToday)).toHaveLength(1);
     expect(s.vigor).toBe(50);
@@ -187,7 +187,7 @@ describe('OathStore', () => {
     expect(s.streaks.overallBest).toBe(1);
     expect(s.dailyScores['2000-01-05']).toBeDefined();
     expect(s.achievements.find((a) => a.id === 'beginning')!.progress).toBe(1);
-    expect(s.achievements.find((a) => a.id === 'sRank')!.progress).toBe(1);
+    expect(s.achievements.find((a) => a.id === 'levelPath')!.name).toBe('GETTING ON TRACK');
   });
 
   it('meal-plan quest auto-completes when all rules are met', async () => {

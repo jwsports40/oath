@@ -128,7 +128,7 @@ export default function HeroScreen() {
       <div style={{ display: 'flex', gap: 8 }}>
         <StatTile label="STR" value={character.str} sub={`${character.str - 10} PHYSICAL DAYS`} />
         <StatTile label="HP" value={`${body.hp}/${body.maxHp}`} ember sub={`${body.proteinDays} PROTEIN DAYS ·+2`} />
-        <StatTile label="VIT" value={character.vit} sub={`+${character.vit} HP/DAY`} />
+        <StatTile label="VIT" value={character.vit} sub={`${character.vit - 1} WORK DAYS · HEAL/DAY`} />
         <StatTile label="WIL" value={character.wil} sub={`${character.wil - 10} MENTAL DAYS`} />
         <StatTile label="STAM" value={character.stam ?? 10} sub={`${body.waterDays} WATER DAYS`} />
       </div>

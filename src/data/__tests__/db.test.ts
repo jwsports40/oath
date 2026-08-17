@@ -66,9 +66,9 @@ describe('seedIfEmpty', () => {
     const achievements = await kvGet<Achievement[]>('achievements', []);
     expect(achievements.map((a) => a.id)).toEqual([
       'beginning', 'ironWill', 'hydrated', 'perfectWeek', 'consistency',
-      'sRank', 'siegebreaker', 'crest', 'legend',
+      'giantSlayer', 'crest', 'levelPath',
     ]);
-    expect(achievements.map((a) => a.target)).toEqual([1, 10, 30, 7, 100, 1, 1, 3, 1]);
+    expect(achievements.map((a) => a.target)).toEqual([1, 10, 7, 7, 100, 1, 3, 25]);
     expect(achievements.every((a) => a.progress === 0 && a.unlockedAt === undefined)).toBe(true);
 
     // idempotent: run again, counts unchanged
