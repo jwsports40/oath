@@ -5,6 +5,7 @@ import { ARMOR_AGES } from '../../core/types';
 import { Icon, PageFrame, Panel, SectionLabel, SegmentedBar } from '../atoms';
 import Knight from '../knight/Knight';
 import Armory from './Armory';
+import Spoils from './Spoils';
 import CampaignCalendar from './CampaignCalendar';
 import SettingsPanel from './SettingsPanel';
 
@@ -60,6 +61,7 @@ function StreakRow({ label, current, best }: { label: string; current: number; b
 /** HERO tab (spec §4): knight stage, stats, armory, campaign calendar, deeds, streaks. */
 export default function HeroScreen() {
   const character = useOath((s) => s.character);
+  const ageLevel = useOath((s) => s.ageLevel);
   const body = useOath((s) => s.body);
   const vigor = useOath((s) => s.vigor);
   const vigorBand = useOath((s) => s.vigorBand);
@@ -91,7 +93,7 @@ export default function HeroScreen() {
       {/* Knight stage: pure black, borderless — the card art blends straight in. */}
       <div style={{ background: '#000', margin: '0 -8px', padding: '10px 0 8px' }}>
         <div style={{ display: 'flex', justifyContent: 'center' }}>
-          <Knight pose="full" level={character.level} vigorBand={vigorBand} size={330} />
+          <Knight pose="full" level={ageLevel} vigorBand={vigorBand} size={330} />
         </div>
         <div
           style={{
@@ -139,6 +141,8 @@ export default function HeroScreen() {
           </span>
         </div>
       </div>
+
+      <Spoils />
 
       <Armory />
 

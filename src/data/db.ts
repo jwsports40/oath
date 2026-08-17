@@ -1,8 +1,9 @@
 // data/db.ts — Dexie schema. All persistence flows through this module.
 import Dexie, { type Table } from 'dexie';
 import type {
-  Category, QuestTemplate, QuestInstance, QuestCompletion, XPEvent, DailyScore,
-  SiegeState, WorkoutProgram, Exercise, WorkoutSession, PersonalRecord, Meal, HydrationEntry,
+  Category, Chest, QuestTemplate, QuestInstance, QuestCompletion, XPEvent, DailyScore,
+  LootItem, SiegeState, WorkoutProgram, Exercise, WorkoutSession, PersonalRecord, Meal,
+  HydrationEntry,
 } from '../core/types';
 
 export class OathDB extends Dexie {
@@ -19,7 +20,9 @@ export class OathDB extends Dexie {
   prs!: Table<PersonalRecord, string>;              // index: id, exerciseId
   meals!: Table<Meal, string>;                      // index: id, date
   hydration!: Table<HydrationEntry, string>;        // index: id, date
-  kv!: Table<{ key: string; value: unknown }, string>; // character, settings, streaks, vigor, nutritionGoal, achievements, unlocks, foodCache, corrections, aiQueue
+  kv!: Table<{ key: string; value: unknown }, string>; // character, settings, streaks, vigor, nutritionGoal, achievements, unlocks, foodCache, corrections, aiQueue, body, equipped
+  chests!: Table<Chest, string>;
+  loot!: Table<LootItem, string>;
 
   constructor() {
     super('oath');
@@ -38,6 +41,11 @@ export class OathDB extends Dexie {
       meals: 'id, date',
       hydration: 'id, date',
       kv: 'key',
+    });
+    // v2: loot system — chests (deterministic ids from their source) + rolled items.
+    this.version(2).stores({
+      chests: 'id, kind',
+      loot: 'id, chestId, genre',
     });
   }
 }

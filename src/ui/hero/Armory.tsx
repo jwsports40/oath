@@ -17,7 +17,7 @@ interface Tile {
  * (`LV 19`, `S×7` = 7 S-days, `PR ✓`).
  */
 export default function Armory() {
-  const level = useOath((s) => s.character.level);
+  const level = useOath((s) => s.ageLevel); // admin override wins
   const unlocks = useOath((s) => s.unlocks);
   const streaks = useOath((s) => s.streaks);
   const prs = useOath((s) => s.prs);

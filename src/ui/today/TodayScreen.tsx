@@ -195,6 +195,7 @@ export default function TodayScreen() {
   const instances = useOath((s) => s.instances);
   const templates = useOath((s) => s.templates);
   const character = useOath((s) => s.character);
+  const ageLevel = useOath((s) => s.ageLevel);
   const live = useOath((s) => s.live);
   const streaks = useOath((s) => s.streaks);
   const siege = useOath((s) => s.siege);
@@ -261,7 +262,7 @@ export default function TodayScreen() {
           {/* 2. Knight bust panel */}
           <Panel>
             <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-              <Knight level={character.level} pose="bust" size={84} />
+              <Knight level={ageLevel} pose="bust" size={84} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: 'var(--font-body)', fontSize: 22, color: 'var(--text-hi)' }}>
                   LV {character.level} {character.title.toUpperCase()}

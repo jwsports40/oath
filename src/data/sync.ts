@@ -12,7 +12,7 @@ export type Dump = Record<string, unknown[]>;
 
 type Row = Record<string, unknown>;
 
-const APPEND_ONLY = ['completions', 'xpEvents', 'meals', 'hydration', 'sessions', 'prs'];
+const APPEND_ONLY = ['completions', 'xpEvents', 'meals', 'hydration', 'sessions', 'prs', 'loot'];
 const CONFIG_BY_ID = ['categories', 'templates', 'programs', 'exercises'];
 const KV_LOCAL = new Set(['settings', 'aiQueue']);
 
@@ -95,6 +95,9 @@ export function mergeDumps(local: Dump, remote: Dump): Dump {
   for (const t of CONFIG_BY_ID) out[t] = unionBy(rows(local, t), rows(remote, t), 'id', preferActive);
 
   out.dailyScores = unionBy(rows(local, 'dailyScores'), rows(remote, 'dailyScores'), 'date', preferActive);
+  // Chests: deterministic ids; an opened copy always beats an unopened one.
+  out.chests = unionBy(rows(local, 'chests'), rows(remote, 'chests'), 'id', (a, b) =>
+    (typeof a.openedAt === 'string' ? a : typeof b.openedAt === 'string' ? b : a));
   out.sieges = unionBy(rows(local, 'sieges'), rows(remote, 'sieges'), 'weekStart', (a, b) => {
     const winner = (typeof a.hp === 'number' ? a.hp : 0) <= (typeof b.hp === 'number' ? b.hp : 0) ? a : b;
     return { ...winner, killed: a.killed === true || b.killed === true };

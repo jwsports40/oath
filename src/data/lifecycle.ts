@@ -15,17 +15,34 @@ import { newSiege, bossHeal, dealDamage, KILL_XP } from '../game/siege';
 import {
   carryFactor, critMult, dmgMult, healPct, optionalCap, workoutXpMult,
 } from '../game/body';
+import { chestEntitlements, lootEffects, type LootEffects } from '../game/loot';
 import { ARMOR_AGES, DIFFICULTY, TITLES } from '../core/types';
 import { DEFAULT_NUTRITION_GOAL } from './seed';
 import type {
-  Achievement, Character, DailyScore, NutritionGoal, QuestInstance, QuestTemplate,
-  Rank, SiegeState, Unlock,
+  Achievement, Character, Chest, DailyScore, Equipped, LootItem, NutritionGoal,
+  QuestInstance, QuestTemplate, Rank, SiegeState, Unlock,
 } from '../core/types';
 
-/** Current perk context (level + stats) from the cached character. */
-async function perkContext(): Promise<{ level: number; str: number; wil: number; stam: number }> {
+/**
+ * Current perk context: cached stats, the EFFECTIVE age level (admin override
+ * wins), and the aggregated effects of the attached loot.
+ */
+async function perkContext(): Promise<{
+  level: number; ageLevel: number; str: number; wil: number; stam: number; fx: LootEffects;
+}> {
   const ch = await kvGet<Character>('character', { level: 1, xpTotal: 0, str: 10, vit: 10, wil: 10, stam: 10 });
-  return { level: ch.level, str: ch.str, wil: ch.wil, stam: ch.stam ?? 10 };
+  const settings = await kvGet<{ adminKnightLevel?: number }>('settings', {});
+  const equipped = await kvGet<Equipped>('equipped', {});
+  const ids = [equipped.token, equipped.enchant, equipped.totem]
+    .filter((x): x is string => typeof x === 'string');
+  const items = (await Promise.all(ids.map((i) => db.loot.get(i))))
+    .filter((x): x is LootItem => x !== undefined);
+  return {
+    level: ch.level,
+    ageLevel: settings.adminKnightLevel ?? ch.level,
+    str: ch.str, wil: ch.wil, stam: ch.stam ?? 10,
+    fx: lootEffects(items),
+  };
 }
 
 export interface CompletionResult {
@@ -86,7 +103,7 @@ async function sealDay(d: string): Promise<DailyScore | null> {
   }
   const perk = await perkContext();
   const scoreables = instances.map(toScoreable);
-  const score = dayScore(scoreables, optionalCap(perk.stam, perk.level));
+  const score = dayScore(scoreables, optionalCap(perk.stam, perk.ageLevel));
   const rank = dayRank(score, scoreables);
   const required = instances.filter((i) => !i.optional);
   const prev = await db.dailyScores.get(d);
@@ -100,7 +117,7 @@ async function sealDay(d: string): Promise<DailyScore | null> {
   await db.dailyScores.put(sealed);
   if (!rankAtLeast(rank, 'C')) {
     const siege = await db.sieges.get(weekStartOf(d));
-    if (siege !== undefined && !siege.killed) await db.sieges.put(bossHeal(siege, healPct(perk.level)));
+    if (siege !== undefined && !siege.killed) await db.sieges.put(bossHeal(siege, Math.max(0.005, healPct(perk.ageLevel) - perk.fx.healPtDown)));
   }
   return sealed;
 }
@@ -112,7 +129,7 @@ async function updateLiveScore(d: string): Promise<{ score: number; rank: Rank }
   const instances = await db.instances.where('date').equals(d).toArray();
   const perk = await perkContext();
   const scoreables = instances.map(toScoreable);
-  const score = dayScore(scoreables, optionalCap(perk.stam, perk.level));
+  const score = dayScore(scoreables, optionalCap(perk.stam, perk.ageLevel));
   const rank = dayRank(score, scoreables);
   const required = instances.filter((i) => !i.optional);
   await db.dailyScores.put({
@@ -204,11 +221,16 @@ export async function completeInstance(id: string, at: string): Promise<Completi
   const unlockIdsBefore = new Set((await kvGet<Unlock[]>('unlocks', [])).map((u) => u.id));
 
   const streak = await questStreakFor(inst);
-  // STR perk: a strong knight lifts heavier — workout quests pay more base XP.
-  let baseXp = DIFFICULTY[inst.difficulty].xp;
+  const perk = await perkContext();
+  // XP multipliers: STR + TRAINED KNIGHT perk (workouts) plus attached tokens.
+  const firstOfDay = (await db.completions.where('date').equals(inst.date).count()) === 0;
+  let bonus = perk.fx.xpAll
+    + (inst.main ? perk.fx.xpMain : 0)
+    + (firstOfDay ? perk.fx.xpFirst : 0);
   if (inst.kind === 'workout') {
-    baseXp = Math.floor(baseXp * workoutXpMult(before.str, before.level) + 0.5);
+    bonus += (workoutXpMult(perk.str, perk.ageLevel) - 1) + perk.fx.xpWorkout;
   }
+  const baseXp = round(DIFFICULTY[inst.difficulty].xp * (1 + bonus));
   const xp = xpAward(baseXp, streak);
   await db.completions.add({
     id: newId(), instanceId: id, templateId: inst.templateId,
@@ -227,8 +249,8 @@ export async function completeInstance(id: string, at: string): Promise<Completi
   const siege = await db.sieges.get(weekStartOf(inst.date));
   if (siege !== undefined && !siege.killed) {
     const struck = dealDamage(siege, xp, inst.main, inst.name, at, {
-      crit: critMult(before.wil, before.level),
-      dmg: dmgMult(before.level),
+      crit: critMult(perk.wil, perk.ageLevel),
+      dmg: dmgMult(perk.ageLevel) + perk.fx.siegeDmg,
     });
     siegeDamage = struck.log[struck.log.length - 1].amount;
     siegeKilled = struck.killed;
@@ -346,9 +368,33 @@ export async function recomputeDerived(): Promise<void> {
     proteinOk: (proteinByDate.get(d.date) ?? 0) >= goals.protein,
     waterOk: (waterByDate.get(d.date) ?? 0) >= goals.waterOz,
   }));
-  const { state: streaks, emberSpentDates, body } = foldStreaks(outcomes, { level });
+  const settings = await kvGet<{ adminKnightLevel?: number }>('settings', {});
+  const equippedSlots = await kvGet<Equipped>('equipped', {});
+  const equippedIds = [equippedSlots.token, equippedSlots.enchant, equippedSlots.totem]
+    .filter((x): x is string => typeof x === 'string');
+  const equippedItems = (await Promise.all(equippedIds.map((i) => db.loot.get(i))))
+    .filter((x): x is LootItem => x !== undefined);
+  const ageLevel = settings.adminKnightLevel ?? level;
+  const { state: streaks, emberSpentDates, body } = foldStreaks(outcomes, {
+    level: ageLevel, effects: lootEffects(equippedItems),
+  });
   await kvSet('streaks', streaks);
   await kvSet('body', body);
+
+  // Chest entitlements — deterministic ids derived from history; never re-rolled.
+  const kills = (await db.sieges.toArray())
+    .filter((sg) => sg.killed)
+    .map((sg) => ({ weekStart: sg.weekStart, generation: sg.generation }));
+  const earned = chestEntitlements({
+    overallBest: streaks.overallBest, sRankBest: streaks.sRankBest, kills,
+  });
+  const nowIso = new Date().toISOString();
+  for (const e of earned) {
+    if ((await db.chests.get(e.id)) === undefined) {
+      const chest: Chest = { id: e.id, kind: e.kind, source: e.source, earnedAt: nowIso };
+      await db.chests.add(chest);
+    }
+  }
   const emberSet = new Set(emberSpentDates);
   for (const d of sealed) {
     const spent = emberSet.has(d.date);
@@ -502,7 +548,10 @@ export async function ensureSiege(today: string): Promise<SiegeState> {
     .sort((a, b) => (a.weekStart < b.weekStart ? -1 : 1))
     .pop();
   const perk = await perkContext();
-  const siege = newSiege(weekStart, await weekAvailableXp(weekStart), prior, carryFactor(perk.level));
+  const siege = newSiege(
+    weekStart, await weekAvailableXp(weekStart), prior,
+    carryFactor(perk.ageLevel) + perk.fx.carryBonus,
+  );
   await db.sieges.add(siege);
   return siege;
 }

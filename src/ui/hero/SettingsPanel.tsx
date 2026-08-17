@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import { useOath } from '../../app/store';
+import { ARMOR_AGES } from '../../core/types';
 import { notificationPermission, requestNotificationPermission } from '../../app/notify';
 import { db } from '../../data/db';
 import { DIFFICULTY } from '../../core/types';
@@ -349,6 +350,27 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
           </Row>
           <div style={{ ...bodyText, color: 'var(--text-faint)' }}>
             ONE SAVE ACROSS DEVICES VIA THE BRIDGE — PULLS ON OPEN, PUSHES AFTER CHANGES
+          </div>
+
+          <SectionLabel>ADMIN</SectionLabel>
+          <Row label="SELECT KNIGHT">
+            <select
+              value={settings.adminKnightLevel ?? 0}
+              onChange={(e) => {
+                const v = Number(e.currentTarget.value);
+                const patch = v === 0 ? { adminKnightLevel: undefined } : { adminKnightLevel: v };
+                void updateSettings(patch);
+              }}
+              style={{ ...inputStyle, width: 200 }}
+            >
+              <option value={0}>MY LEVEL (DEFAULT)</option>
+              {ARMOR_AGES.map(([lv, name]) => (
+                <option key={lv} value={lv}>{name}</option>
+              ))}
+            </select>
+          </Row>
+          <div style={{ ...bodyText, color: 'var(--text-faint)' }}>
+            FORCES ANY KNIGHT — ART, TITLE, AND AGE PERKS. XP AND LEVEL STAY REAL.
           </div>
 
           <SectionLabel>DANGER</SectionLabel>

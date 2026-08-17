@@ -51,6 +51,12 @@ export interface Meal { id:string; date:string; at:string; entries:FoodEntry[]; 
 export interface HydrationEntry { id:string; date:string; at:string; oz:number; }
 export interface Character { level:number; xpTotal:number; str:number; vit:number; wil:number; stam?:number; }
 export interface Unlock { id:string; kind:'armorAge'|'helm'|'cape'|'crest'|'title'|'environment'; name:string; unlockedAt:string; }
+export type LootGenre = 'token'|'enchant'|'totem';
+export type LootTier = 'common'|'rare'|'mythic';
+export type ChestKind = 'wooden'|'war'|'gilded';
+export interface Chest { id:string; kind:ChestKind; source:string; earnedAt:string; openedAt?:string; }
+export interface LootItem { id:string; chestId:string; itemKey:string; genre:LootGenre; tier:LootTier; name:string; obtainedAt:string; }
+export interface Equipped { token?:string; enchant?:string; totem?:string; }   // slot -> LootItem id
 export interface Achievement { id:string; name:string; desc:string; target:number; progress:number; unlockedAt?:string; }
 export interface UserSettings {
   units:'oz'|'ml'; sound:boolean; haptics:boolean; crt:boolean; fxIntensity:'full'|'reduced'|'off';
@@ -59,6 +65,7 @@ export interface UserSettings {
   notifications:{questReminders:boolean; eveningSweep:boolean; threshold:boolean; streakGuard:boolean; workout:boolean; sweepTime:string};
   anthropicKey?:string;
   bridgeUrl?:string;                               // SCRIBE bridge override (e.g. https tunnel to home PC)
+  adminKnightLevel?:number;                        // admin: force any knight (visuals + age perks)
 }
 export interface WorldState { vigor:number; }      // bands derived
 export const VIGOR_BANDS:[number,string][]= [[90,'BEACON'],[75,'STRONGHOLD'],[60,'CAMP'],[40,'EMBER CAMP'],[0,'RUINS']];

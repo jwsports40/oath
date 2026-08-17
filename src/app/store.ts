@@ -25,17 +25,20 @@ import { resolveBridgeUrl } from '../ai/nutrition';
 import { syncNow } from '../data/sync';
 import type { Tab } from './tabs';
 import type {
-  Achievement, Category, Character, DailyScore, Exercise, ExerciseSet, FoodEntry, Meal,
-  NutritionGoal, PersonalRecord, QuestInstance, QuestTemplate, Rank, SiegeState, StreakState,
-  Unlock, UserSettings, WorkoutProgram, WorkoutSession,
+  Achievement, Category, Character, Chest, DailyScore, Equipped, Exercise, ExerciseSet,
+  FoodEntry, LootItem, LootTier, Meal, NutritionGoal, PersonalRecord, QuestInstance,
+  QuestTemplate, Rank, SiegeState, StreakState, Unlock, UserSettings, WorkoutProgram,
+  WorkoutSession,
 } from '../core/types';
+import { CHEST_NAMES, lootDesc, rollChest, CATALOG } from '../game/loot';
 
 export type EffectEvent =
   | { kind: 'xp'; amount: number; at: number }
   | { kind: 'levelUp'; from: number; to: number; ageReveal?: string }
   | { kind: 'daySeal'; date: string; score: number; rank: Rank; xp: number; streak: number }
   | { kind: 'pr'; label: string; xp: number }
-  | { kind: 'siegeKill'; name: string };
+  | { kind: 'siegeKill'; name: string }
+  | { kind: 'loot'; name: string; tier: LootTier; desc: string; chest: string };
 
 export interface OathStore {
   ready: boolean; initError: string | null; today: string; tab: Tab;
@@ -56,6 +59,8 @@ export interface OathStore {
   dailyScores: Record<string, DailyScore>;          // all sealed days (for calendar)
   programs: WorkoutProgram[]; exercises: Exercise[]; sessions: WorkoutSession[]; prs: PersonalRecord[];
   achievements: Achievement[]; unlocks: Unlock[];
+  chests: Chest[]; loot: LootItem[]; equipped: Equipped;
+  ageLevel: number;                                 // admin override wins; drives knight art + age perks
   settings: UserSettings;
   effects: EffectEvent[];
   aiQueueSize: number;
@@ -77,6 +82,8 @@ export interface OathStore {
   editPastDay(date: string, instanceId: string, done: boolean): Promise<void>;
   updateSettings(patch: Partial<UserSettings>): Promise<void>;
   updateGoals(patch: Partial<NutritionGoal>): Promise<void>;
+  openChest(chestId: string): Promise<void>;
+  equipItem(slot: keyof Equipped, itemId: string | null): Promise<void>;
   popEffect(): void;
   refresh(): Promise<void>;                        // reload all derived views from db
 }
@@ -270,6 +277,8 @@ export const useOath = create<OathStore>()((set, get) => {
     prs: [],
     achievements: [],
     unlocks: [],
+    chests: [], loot: [], equipped: {},
+    ageLevel: 1,
     settings: DEFAULT_SETTINGS,
     effects: [],
     aiQueueSize: 0,
@@ -524,6 +533,34 @@ export const useOath = create<OathStore>()((set, get) => {
       set((s) => ({ effects: s.effects.slice(1) }));
     },
 
+    async openChest(chestId: string): Promise<void> {
+      const chest = await db.chests.get(chestId);
+      if (chest === undefined || chest.openedAt !== undefined) return;
+      const roll = rollChest(chest.kind, Math.random);
+      const def = CATALOG.find((d) => d.key === roll.itemKey);
+      if (def === undefined) return;
+      const item: LootItem = {
+        id: newId(), chestId, itemKey: roll.itemKey, genre: roll.genre, tier: roll.tier,
+        name: def.name, obtainedAt: new Date().toISOString(),
+      };
+      await db.loot.add(item);
+      await db.chests.put({ ...chest, openedAt: item.obtainedAt });
+      pushEffects([{
+        kind: 'loot', name: item.name, tier: item.tier,
+        desc: lootDesc(item), chest: CHEST_NAMES[chest.kind],
+      }]);
+      await get().refresh();
+    },
+
+    async equipItem(slot: keyof Equipped, itemId: string | null): Promise<void> {
+      const equipped = await kvGet<Equipped>('equipped', {});
+      const next: Equipped = { ...equipped };
+      if (itemId === null) delete next[slot];
+      else next[slot] = itemId;
+      await kvSet('equipped', next);
+      await get().refresh();
+    },
+
     async refresh(): Promise<void> {
       const today = get().today;
       // Derived caches (character stats, streaks, vigor, achievements) refresh
@@ -547,13 +584,18 @@ export const useOath = create<OathStore>()((set, get) => {
 
       const charRaw = await kvGet<Character>('character', INITIAL_CHARACTER);
       const { into, next } = levelForXp(charRaw.xpTotal);
+      const settingsForAge = await kvGet<UserSettings>('settings', DEFAULT_SETTINGS);
+      const ageLevel = settingsForAge.adminKnightLevel ?? charRaw.level;
       const character = {
         ...charRaw,
-        title: titleForLevel(charRaw.level),
-        armorAge: armorAgeForLevel(charRaw.level),
+        title: titleForLevel(ageLevel),
+        armorAge: armorAgeForLevel(ageLevel),
         into, next,
       };
 
+      const chests = (await db.chests.toArray()).sort((a, b) => (a.earnedAt < b.earnedAt ? -1 : 1));
+      const loot = (await db.loot.toArray()).sort((a, b) => (a.obtainedAt > b.obtainedAt ? -1 : 1));
+      const equipped = await kvGet<Equipped>('equipped', {});
       const streaks = await kvGet<StreakState>('streaks', INITIAL_STREAKS);
       const body = await kvGet<BodyState>('body', { hp: 20, maxHp: 20, wounded: false, proteinDays: 0, waterDays: 0, sRankDays: 0, emberSteals: 0 });
       const vigor = await kvGet<number>('vigor', INITIAL_VIGOR);
@@ -606,6 +648,7 @@ export const useOath = create<OathStore>()((set, get) => {
         instances, templates, categories, character,
         live: { score, rank, pct: score },
         streaks, body, perQuestStreaks, vigor, vigorBand: bandOf(vigor), siege, week,
+        chests, loot, equipped, ageLevel,
         goals, meals, macros, hydrationOz, dailyScores,
         programs, exercises, sessions, prs, achievements, unlocks, settings, aiQueueSize,
       });

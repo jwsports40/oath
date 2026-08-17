@@ -16,7 +16,7 @@ import DaySeal from './DaySeal';
 // Display duration for transient (non-overlay) effects, ms. pr is held longer
 // so SessionLogger's non-destructive read of the queue can surface its banner.
 const FLOAT_MS: Record<EffectEvent['kind'], number> = {
-  xp: 700, pr: 2500, siegeKill: 2000, levelUp: 0, daySeal: 0,
+  xp: 700, pr: 2500, siegeKill: 2000, levelUp: 0, daySeal: 0, loot: 0,
 };
 
 function playCue(e: EffectEvent): void {
@@ -26,6 +26,7 @@ function playCue(e: EffectEvent): void {
     case 'levelUp': fanfareLevelUp(); haptic([30, 40, 30]); break;
     case 'daySeal': sealDay(); haptic(30); break;
     case 'siegeKill': thudDamage(); haptic([40, 60, 40]); break;
+    case 'loot': fanfareLevelUp(); haptic([20, 30, 20]); break;
   }
 }
 
@@ -52,6 +53,45 @@ function KillBanner({ name }: { name: string }) {
       }}
     >
       {name} FALLS
+      <style>{`@keyframes oath-fx-in{from{opacity:0}to{opacity:1}}`}</style>
+    </div>
+  );
+}
+
+const TIER_COLOR: Record<string, string> = {
+  common: 'var(--text-mid)', rare: 'var(--gild)', mythic: 'var(--neon)',
+};
+
+/** Full-screen chest-opening reveal: chest name, then the item card. */
+function LootReveal({ name, tier, desc, chest, onDismiss }: {
+  name: string; tier: string; desc: string; chest: string; onDismiss: () => void;
+}) {
+  return (
+    <div
+      onClick={onDismiss}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 400, background: 'rgba(5,7,5,0.92)',
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        justifyContent: 'center', gap: 14, cursor: 'pointer',
+        animation: 'oath-fx-in 260ms ease-out',
+      }}
+    >
+      <div style={{ fontFamily: 'var(--font-label)', fontSize: 8, letterSpacing: '0.3em', color: 'var(--gild)' }}>
+        {chest} OPENED
+      </div>
+      <div
+        style={{
+          border: '1px solid var(--gild)', background: 'var(--panel)', padding: '18px 26px',
+          textAlign: 'center', boxShadow: '0 0 24px rgba(201,162,60,0.25)',
+        }}
+      >
+        <div style={{ fontFamily: 'var(--font-label)', fontSize: 7, letterSpacing: '0.25em', color: TIER_COLOR[tier] ?? 'var(--text-mid)', marginBottom: 8 }}>
+          {tier.toUpperCase()}
+        </div>
+        <div style={{ fontFamily: 'var(--font-body)', fontSize: 26, color: 'var(--text-hi)' }}>{name}</div>
+        <div style={{ fontFamily: 'var(--font-body)', fontSize: 18, color: 'var(--text-mid)', marginTop: 6 }}>{desc}</div>
+      </div>
+      <div style={{ fontFamily: 'var(--font-body)', fontSize: 16, color: 'var(--text-faint)' }}>TAP TO CLAIM</div>
       <style>{`@keyframes oath-fx-in{from{opacity:0}to{opacity:1}}`}</style>
     </div>
   );
@@ -90,6 +130,10 @@ export function EffectsView({
       return (
         <LevelUpOverlay from={head.from} to={head.to} ageReveal={head.ageReveal} onDismiss={onPop} />
       );
+    case 'loot':
+      return (
+        <LootReveal name={head.name} tier={head.tier} desc={head.desc} chest={head.chest} onDismiss={onPop} />
+      );
     case 'daySeal':
       return fx === 'full' ? (
         <DaySeal
@@ -122,7 +166,9 @@ export default function EffectsLayer() {
   useEffect(() => {
     if (head === undefined) return undefined;
     const isOverlay =
-      head.kind === 'levelUp' ? fx !== 'off' : head.kind === 'daySeal' ? fx === 'full' : false;
+      head.kind === 'levelUp' || head.kind === 'loot'
+        ? fx !== 'off'
+        : head.kind === 'daySeal' ? fx === 'full' : false;
     if (isOverlay) return undefined;
     const ms = fx === 'off' ? 0 : FLOAT_MS[head.kind];
     const t = window.setTimeout(popEffect, ms);

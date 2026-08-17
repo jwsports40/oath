@@ -11,6 +11,7 @@ import type { Rank, StreakState } from '../core/types';
 import {
   emberCapacity, maxHpFor, regenAmount, strikeDamage, type BodyState,
 } from './body';
+import type { LootEffects } from './loot';
 
 export interface DayOutcome {
   date: string; rank: Rank; score: number;
@@ -25,8 +26,13 @@ export function rankAtLeast(r: Rank, min: Rank): boolean {
 
 export function foldStreaks(
   days: DayOutcome[],
-  opts: { level: number } = { level: 1 },
+  opts: { level: number; effects?: Partial<LootEffects> } = { level: 1 },
 ): { state: StreakState; emberSpentDates: string[]; body: BodyState } {
+  const fx = opts.effects ?? {};
+  const armor = fx.strikeArmor ?? 0;
+  const hpBonus = fx.maxHpBonus ?? 0;
+  const regenBonus = fx.regenBonus ?? 0;
+  let lastUnbrokenIdx: number | null = null;
   const state: StreakState = {
     overall: 0, overallBest: 0,
     perfect: 0, perfectBest: 0,
@@ -36,30 +42,38 @@ export function foldStreaks(
   const emberSpentDates: string[] = [];
   const capacity = emberCapacity(opts.level);
   const body: BodyState = {
-    hp: maxHpFor(0), maxHp: maxHpFor(0), wounded: false,
+    hp: maxHpFor(0) + hpBonus, maxHp: maxHpFor(0) + hpBonus, wounded: false,
     proteinDays: 0, waterDays: 0, sRankDays: 0, emberSteals: 0,
   };
 
-  for (const day of days) {
+  for (let i = 0; i < days.length; i++) {
+    const day = days[i]!;
     // Body accounting first: nutrition grows the pool, then the day resolves.
     if (day.proteinOk === true) {
       body.proteinDays += 1;
-      body.maxHp = maxHpFor(body.proteinDays);
+      body.maxHp = maxHpFor(body.proteinDays) + hpBonus;
     }
     if (day.waterOk === true) body.waterDays += 1;
     if (rankAtLeast(day.rank, 'S')) body.sRankDays += 1;
 
     if (rankAtLeast(day.rank, 'C')) {
-      body.hp = Math.min(body.maxHp, body.hp + regenAmount(opts.level));
+      body.hp = Math.min(body.maxHp, body.hp + regenAmount(opts.level) + regenBonus);
       state.overall += 1;
       state.cPlusRun += 1;
       if (state.cPlusRun % 7 === 0 && state.embers < capacity) state.embers += 1;
     } else {
       // The boss strikes FIRST. If it drops you to 0 and an ember is banked,
       // it steals that ember before the streak-save can use it.
-      body.hp -= strikeDamage(opts.level);
+      body.hp -= Math.max(1, strikeDamage(opts.level) - armor);
       if (body.hp <= 0) {
-        if (state.embers > 0) {
+        if (fx.unbroken === true && (lastUnbrokenIdx === null || i - lastUnbrokenIdx >= 14)) {
+          // Totem of the Unbroken: survive at 1 HP, the boss gets nothing.
+          lastUnbrokenIdx = i;
+          body.hp = 1;
+        } else if (fx.wardEmber === true) {
+          // Totem of the Undying Flame: the boss can never steal an ember.
+          body.hp = 0;
+        } else if (state.embers > 0) {
           state.embers -= 1;
           body.emberSteals += 1;
           body.hp = Math.ceil(body.maxHp / 2);
