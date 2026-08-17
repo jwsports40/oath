@@ -7,9 +7,20 @@ import './styles/global.css';
 import { registerSW } from 'virtual:pwa-register';
 import React from 'react';
 
-// Auto-update: fetch the new service worker immediately and reload as soon as
-// it activates — no more close-and-reopen-twice to see new versions.
-registerSW({ immediate: true });
+// Hot auto-update: register immediately, then poll for a new version every
+// 5 minutes while the app is open (and on returning to the foreground).
+// skipWaiting+clientsClaim in the SW make the new version take over at once.
+registerSW({
+  immediate: true,
+  onRegisteredSW(_url, registration) {
+    if (registration === undefined) return;
+    const check = (): void => { void registration.update(); };
+    setInterval(check, 5 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') check();
+    });
+  },
+});
 
 import ReactDOM from 'react-dom/client';
 import App from './app/App';
