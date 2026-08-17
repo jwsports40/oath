@@ -14,7 +14,7 @@ type Row = Record<string, unknown>;
 
 const APPEND_ONLY = ['completions', 'xpEvents', 'meals', 'hydration', 'sessions', 'prs', 'loot'];
 const CONFIG_BY_ID = ['categories', 'templates', 'programs', 'exercises'];
-const KV_LOCAL = new Set(['settings', 'aiQueue']);
+const KV_LOCAL = new Set(['settings', 'aiQueue', 'pinHash']);
 
 function rows(d: Dump, table: string): Row[] {
   const r = d[table];
@@ -175,9 +175,12 @@ export interface SyncResult { status: 'synced' | 'offline'; }
 
 /** Pull → merge → restore → recompute → push. Safe to call repeatedly. */
 export async function syncNow(bridgeUrl: string): Promise<SyncResult> {
+  // The PIN hash keys the profile on the bridge: same PIN, same save.
+  const pinHash = await kvGet<string | null>('pinHash', null);
+  const profile = pinHash !== null && /^[a-f0-9]{8,64}$/.test(pinHash) ? `?p=${pinHash}` : '';
   let res: Response;
   try {
-    res = await fetch(`${bridgeUrl}/state`, { signal: AbortSignal.timeout(8000) });
+    res = await fetch(`${bridgeUrl}/state${profile}`, { signal: AbortSignal.timeout(8000) });
   } catch {
     return { status: 'offline' };
   }
@@ -195,12 +198,13 @@ export async function syncNow(bridgeUrl: string): Promise<SyncResult> {
     await restoreAll(merged);
     if (settings !== null) await kvSet('settings', settings);
     await kvSet('aiQueue', aiQueue);
+    if (pinHash !== null) await kvSet('pinHash', pinHash);
     await recomputeDerived();
     merged = await dumpAll();
   } else {
     throw new Error(`bridge /state responded ${res.status}`);
   }
-  const put = await fetch(`${bridgeUrl}/state`, {
+  const put = await fetch(`${bridgeUrl}/state${profile}`, {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ baseRev, savedAt: new Date().toISOString(), tables: merged }),

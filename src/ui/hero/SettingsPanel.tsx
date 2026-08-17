@@ -3,7 +3,8 @@ import type { CSSProperties, ReactNode } from 'react';
 import { useOath } from '../../app/store';
 import { ARMOR_AGES } from '../../core/types';
 import { notificationPermission, requestNotificationPermission } from '../../app/notify';
-import { db } from '../../data/db';
+import { db, kvGet, kvSet } from '../../data/db';
+import { hashPin, validPin } from '../../core/pin';
 import { DIFFICULTY } from '../../core/types';
 import type { UserSettings } from '../../core/types';
 import { Panel, SectionLabel } from '../atoms';
@@ -169,6 +170,107 @@ async function importBackup(file: File): Promise<void> {
  * nutrition targets, water goal, daily reset time, difficulty weighting view,
  * storage line, animation intensity, CRT, Anthropic API key, backup export/import.
  */
+/** 4-digit PIN login: locks the app and keys the synced save across devices. */
+function PinLogin() {
+  const syncNowAction = useOath((s) => s.syncNow);
+  const [pinHash, setPinHash] = useState<string | null>(null);
+  const [pin, setPin] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [msg, setMsg] = useState<string | null>(null);
+  useEffect(() => { void kvGet<string | null>('pinHash', null).then(setPinHash); }, []);
+
+  const pinInput: CSSProperties = {
+    fontFamily: 'var(--font-body)', fontSize: 20, color: 'var(--text-hi)',
+    background: 'var(--bg-deep)', border: '1px solid var(--border)',
+    padding: '4px 8px', width: 90, textAlign: 'center', letterSpacing: '0.4em',
+  };
+
+  const create = async (): Promise<void> => {
+    if (!validPin(pin)) { setMsg('PIN MUST BE 4 DIGITS'); return; }
+    if (pin !== confirm) { setMsg('PINS DO NOT MATCH'); return; }
+    const h = hashPin(pin);
+    await kvSet('pinHash', h);
+    sessionStorage.setItem('oath-unlocked', '1');
+    setPinHash(h);
+    setPin('');
+    setConfirm('');
+    setMsg('PIN SET — SAVING YOUR LEDGER UNDER IT');
+    void syncNowAction();
+  };
+
+  const remove = async (): Promise<void> => {
+    if (hashPin(pin) !== pinHash) { setMsg('ENTER YOUR CURRENT PIN TO REMOVE IT'); return; }
+    await kvSet('pinHash', null);
+    setPinHash(null);
+    setPin('');
+    setMsg('PIN REMOVED');
+    void syncNowAction();
+  };
+
+  const lockNow = (): void => {
+    sessionStorage.removeItem('oath-unlocked');
+    window.location.reload();
+  };
+
+  if (pinHash === null) {
+    return (
+      <div>
+        <div style={{ ...bodyText, fontSize: 14, color: 'var(--text-faint)', marginBottom: 6 }}>
+          CREATE A 4-DIGIT PIN. IT LOCKS THE APP — AND LOGGING IN WITH THE SAME PIN
+          ON ANY DEVICE LOADS THIS SAVE.
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input
+            style={pinInput} type="password" inputMode="numeric" maxLength={4}
+            placeholder="PIN" value={pin} aria-label="new pin"
+            onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+          />
+          <input
+            style={pinInput} type="password" inputMode="numeric" maxLength={4}
+            placeholder="AGAIN" value={confirm} aria-label="confirm pin"
+            onChange={(e) => setConfirm(e.target.value.replace(/\D/g, ''))}
+          />
+          <button
+            style={{ ...bodyText, color: 'var(--neon)', background: 'transparent', border: '1px solid var(--neon)', padding: '6px 12px', cursor: 'pointer' }}
+            onClick={() => { void create(); }}
+          >
+            CREATE PIN
+          </button>
+        </div>
+        {msg !== null && <div style={{ ...bodyText, fontSize: 14, color: 'var(--ember)', marginTop: 4 }}>{msg}</div>}
+      </div>
+    );
+  }
+  return (
+    <div>
+      <div style={{ ...bodyText, color: 'var(--neon)' }}>PIN LOGIN ACTIVE</div>
+      <div style={{ ...bodyText, fontSize: 14, color: 'var(--text-faint)', margin: '4px 0 6px' }}>
+        ENTER THIS PIN ON YOUR OTHER DEVICES TO LOAD THE SAME SAVE.
+      </div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <button
+          style={{ ...bodyText, color: 'var(--text-mid)', background: 'transparent', border: '1px solid var(--border)', padding: '6px 12px', cursor: 'pointer' }}
+          onClick={lockNow}
+        >
+          LOCK NOW
+        </button>
+        <input
+          style={pinInput} type="password" inputMode="numeric" maxLength={4}
+          placeholder="PIN" value={pin} aria-label="current pin"
+          onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+        />
+        <button
+          style={{ ...bodyText, color: 'var(--ember)', background: 'transparent', border: '1px solid var(--ember)', padding: '6px 12px', cursor: 'pointer' }}
+          onClick={() => { void remove(); }}
+        >
+          REMOVE PIN
+        </button>
+      </div>
+      {msg !== null && <div style={{ ...bodyText, fontSize: 14, color: 'var(--ember)', marginTop: 4 }}>{msg}</div>}
+    </div>
+  );
+}
+
 export default function SettingsPanel({ onClose }: { onClose: () => void }) {
   const settings = useOath((s) => s.settings);
   const goals = useOath((s) => s.goals);
@@ -309,6 +411,9 @@ export default function SettingsPanel({ onClose }: { onClose: () => void }) {
               </div>
             ))}
           </div>
+
+          <SectionLabel>LOGIN</SectionLabel>
+          <PinLogin />
 
           <SectionLabel>STORAGE</SectionLabel>
           <div style={{ ...bodyText, color: 'var(--text-mid)' }}>{storageLine}</div>

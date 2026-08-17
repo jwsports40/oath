@@ -104,7 +104,9 @@ let discovered: { url: string | null; at: number } | null = null;
 export async function resolveBridgeUrlAuto(configured: string | undefined): Promise<string | null> {
   const direct = resolveBridgeUrl(configured);
   if (direct !== null) return direct;
-  if (typeof fetch === 'undefined') return null;
+  // Discovery is a browser concern — never in tests or workers.
+  if (typeof window === 'undefined' || typeof fetch === 'undefined') return null;
+  if (import.meta.env?.MODE === 'test') return null;
   const now = Date.now();
   if (discovered !== null && now - discovered.at < 5 * 60_000) return discovered.url;
   try {

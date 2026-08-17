@@ -26,6 +26,8 @@ import { ageLayersForLevel } from '../ui/knight/ages';
 import EffectsLayer from '../ui/effects/EffectsLayer';
 import type { Difficulty, Rank } from '../core/types';
 import { addDays, dayKey } from '../core/dates';
+import { kvGet } from '../data/db';
+import PinLock from '../ui/PinLock';
 
 const SCREENS: Record<Tab, () => JSX.Element> = {
   today: TodayScreen,
@@ -200,6 +202,15 @@ export default function App() {
   const tab = useOath((s) => s.tab);
   const setTab = useOath((s) => s.setTab);
   const crt = useOath((s) => s.settings.crt);
+  // PIN login gate: when a PIN exists, the app locks until it is entered
+  // (once per browser session).
+  const [lockHash, setLockHash] = useState<string | null | 'checking'>('checking');
+  useEffect(() => {
+    void kvGet<string | null>('pinHash', null).then((h) => {
+      const unlocked = typeof sessionStorage !== 'undefined' && sessionStorage.getItem('oath-unlocked') === '1';
+      setLockHash(h !== null && !unlocked ? h : null);
+    });
+  }, []);
   const isGallery =
     import.meta.env.DEV &&
     typeof window !== 'undefined' &&
@@ -210,6 +221,19 @@ export default function App() {
   }, [isGallery]);
 
   if (isGallery) return <GalleryScreen />;
+
+  if (lockHash === 'checking') return <div style={{ position: 'fixed', inset: 0, background: '#000' }} />;
+  if (lockHash !== null) {
+    return (
+      <PinLock
+        pinHash={lockHash}
+        onUnlock={() => {
+          sessionStorage.setItem('oath-unlocked', '1');
+          setLockHash(null);
+        }}
+      />
+    );
+  }
 
   if (!ready && initError !== null) {
     return (

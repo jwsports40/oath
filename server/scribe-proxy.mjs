@@ -17,18 +17,26 @@ const PORT = 4174;
 
 // Master save for cross-device sync (GET/PUT /state). Written atomically.
 const STATE_DIR = join(dirname(fileURLToPath(import.meta.url)), 'state');
-const STATE_FILE = join(STATE_DIR, 'oath-state.json');
 
-function loadState() {
-  if (!existsSync(STATE_FILE)) return null;
-  try { return JSON.parse(readFileSync(STATE_FILE, 'utf8')); } catch { return null; }
+// Profile-keyed saves: the app's PIN hash arrives as ?p=<hex>, giving each
+// PIN login its own master save. No p -> the original single-user file.
+function stateFile(profile) {
+  const safe = typeof profile === 'string' && /^[a-f0-9]{8,64}$/.test(profile) ? `-${profile}` : '';
+  return join(STATE_DIR, `oath-state${safe}.json`);
 }
 
-function saveState(state) {
+function loadState(profile) {
+  const file = stateFile(profile);
+  if (!existsSync(file)) return null;
+  try { return JSON.parse(readFileSync(file, 'utf8')); } catch { return null; }
+}
+
+function saveState(profile, state) {
   mkdirSync(STATE_DIR, { recursive: true });
-  const tmp = `${STATE_FILE}.tmp`;
+  const file = stateFile(profile);
+  const tmp = `${file}.tmp`;
   writeFileSync(tmp, JSON.stringify(state));
-  renameSync(tmp, STATE_FILE);
+  renameSync(tmp, file);
 }
 
 const SYSTEM = `You are SCRIBE, a nutrition estimator. Estimate macros for the foods in the user's utterance. Apply knownCorrections verbatim when a food matches. Use the requested unit system. confidence is 0-1. Put genuinely ambiguous items in needs_clarification instead of guessing wildly.
@@ -143,20 +151,23 @@ const server = http.createServer(async (req, res) => {
     res.end('{"ok":true}');
     return;
   }
-  if (req.url === '/state' && req.method === 'GET') {
-    const state = loadState();
+  const reqUrl = new URL(req.url, 'http://localhost');
+  const statePath = reqUrl.pathname === '/state';
+  const profile = reqUrl.searchParams.get('p');
+  if (statePath && req.method === 'GET') {
+    const state = loadState(profile);
     if (state === null) { res.writeHead(404); res.end(); return; }
     res.writeHead(200, { 'content-type': 'application/json' });
     res.end(JSON.stringify(state));
     return;
   }
-  if (req.url === '/state' && req.method === 'PUT') {
+  if (statePath && req.method === 'PUT') {
     try {
       const body = JSON.parse(await readBody(req, 25_000_000));
       if (typeof body.tables !== 'object' || body.tables === null) {
         res.writeHead(400); res.end('missing tables'); return;
       }
-      const current = loadState();
+      const current = loadState(profile);
       const currentRev = current === null ? 0 : current.rev;
       if ((body.baseRev ?? 0) !== currentRev) {
         // Another device saved since this client pulled — make it re-merge.
@@ -165,8 +176,8 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       const next = { rev: currentRev + 1, savedAt: body.savedAt ?? new Date().toISOString(), tables: body.tables };
-      saveState(next);
-      console.log(`[state] rev ${next.rev} saved`);
+      saveState(profile, next);
+      console.log(`[state] rev ${next.rev} saved${profile !== null ? ` (profile ${profile.slice(0, 8)})` : ''}`);
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ rev: next.rev }));
     } catch (e) {
