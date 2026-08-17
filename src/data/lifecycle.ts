@@ -59,7 +59,7 @@ async function perkContext(date?: string): Promise<{
     xpAll: tokens.xpAll, xpWorkout: tokens.xpWorkout, xpMain: tokens.xpMain, xpFirst: tokens.xpFirst,
     strikeArmor: enchants.strikeArmor, siegeDmg: enchants.siegeDmg,
     strikeShave: enchants.strikeShave, regenBonus: enchants.regenBonus,
-    maxHpBonus: totems.maxHpBonus, carryBonus: totems.carryBonus,
+    maxHpBonus: totems.maxHpBonus, maxHpMult: totems.maxHpMult, carryBonus: totems.carryBonus,
     wardEmber: totems.wardEmber, unbroken: totems.unbroken,
   };
   return {

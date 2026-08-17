@@ -54,7 +54,7 @@ describe('lootEffects', () => {
     const fx = lootEffects([item('tokenIron', 'rare'), item('enchBulwark', 'mythic'), item('totemColossus')]);
     expect(fx.xpWorkout).toBeCloseTo(0.2);
     expect(fx.strikeArmor).toBe(5);
-    expect(fx.maxHpBonus).toBe(20);
+    expect(fx.maxHpMult).toBe(1.2);
     expect(fx.wardEmber).toBe(false);
   });
   it('totem flags come through', () => {

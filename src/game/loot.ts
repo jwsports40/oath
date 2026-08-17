@@ -38,7 +38,7 @@ export const CATALOG: LootDef[] = [
   { key: 'totemUndyingFlame', genre: 'totem', name: 'TOTEM OF THE UNDYING FLAME',
     desc: 'THE BOSS CAN NEVER STEAL YOUR EMBERS', value: 1 },
   { key: 'totemColossus', genre: 'totem', name: 'TOTEM OF THE COLOSSUS',
-    desc: '+20 MAX HP', value: 20 },
+    desc: 'MAX HP ×{v}', value: 1.2 },
   { key: 'totemWarpath', genre: 'totem', name: 'TOTEM OF THE WARPATH',
     desc: 'OVERKILL CARRIES +25% MORE INTO NEXT WEEK', value: 0.25 },
 ];
@@ -138,7 +138,7 @@ export function equippedIds(e: { slots?: string[]; token?: string; enchant?: str
 export interface LootEffects {
   xpAll: number; xpWorkout: number; xpMain: number; xpFirst: number;
   strikeArmor: number; siegeDmg: number; strikeShave: number; regenBonus: number;
-  maxHpBonus: number; carryBonus: number;
+  maxHpBonus: number; maxHpMult: number; carryBonus: number;
   wardEmber: boolean; unbroken: boolean;
 }
 
@@ -146,7 +146,7 @@ export function lootEffects(equipped: LootItem[]): LootEffects {
   const fx: LootEffects = {
     xpAll: 0, xpWorkout: 0, xpMain: 0, xpFirst: 0,
     strikeArmor: 0, siegeDmg: 0, strikeShave: 0, regenBonus: 0,
-    maxHpBonus: 0, carryBonus: 0, wardEmber: false, unbroken: false,
+    maxHpBonus: 0, maxHpMult: 1, carryBonus: 0, wardEmber: false, unbroken: false,
   };
   for (const it of equipped) {
     const def = CATALOG.find((d) => d.key === it.itemKey);
@@ -163,7 +163,7 @@ export function lootEffects(equipped: LootItem[]): LootEffects {
       case 'enchRunedAegis': fx.regenBonus += v; break;
       case 'totemUnbroken': fx.unbroken = true; break;
       case 'totemUndyingFlame': fx.wardEmber = true; break;
-      case 'totemColossus': fx.maxHpBonus += v; break;
+      case 'totemColossus': fx.maxHpMult *= v; break;
       case 'totemWarpath': fx.carryBonus += v; break;
     }
   }

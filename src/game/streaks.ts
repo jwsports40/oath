@@ -57,6 +57,7 @@ export function foldStreaks(
   const fx = opts.effects ?? {};
   const armor = fx.strikeArmor ?? 0;
   const hpBonus = fx.maxHpBonus ?? 0;
+  const hpMult = fx.maxHpMult ?? 1;
   const regenBonus = fx.regenBonus ?? 0;
   let lastUnbrokenIdx: number | null = null;
   // Villain ladder state
@@ -74,7 +75,8 @@ export function foldStreaks(
   const emberSpentDates: string[] = [];
   const capacity = emberCapacity(opts.level);
   const body: BodyState = {
-    hp: maxHpFor(0) + hpBonus, maxHp: maxHpFor(0) + hpBonus, wounded: false,
+    hp: Math.round(maxHpFor(0) * hpMult) + hpBonus,
+    maxHp: Math.round(maxHpFor(0) * hpMult) + hpBonus, wounded: false,
     proteinDays: 0, workDays: 0, waterDays: 0, sRankDays: 0, emberSteals: 0,
   };
 
@@ -92,7 +94,7 @@ export function foldStreaks(
     }
     // The pool and the heal reflect PRIOR days only — every stat gain lands
     // at the next day's dawn (counters increment at the END of this loop).
-    body.maxHp = Math.max(1, maxHpFor(body.proteinDays) + hpBonus - mods.maxHpDelta);
+    body.maxHp = Math.max(1, Math.round(maxHpFor(body.proteinDays) * hpMult) + hpBonus - mods.maxHpDelta);
     body.hp = Math.min(body.hp, body.maxHp);
 
     // The villain strikes FIRST, EVERY day it still stands this week. On a
