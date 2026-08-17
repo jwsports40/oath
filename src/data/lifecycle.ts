@@ -33,7 +33,7 @@ async function perkContext(date?: string): Promise<{
   level: number; ageLevel: number; str: number; wil: number; stam: number;
   fx: LootEffects; mods: StatusMods;
 }> {
-  const ch = await kvGet<Character>('character', { level: 1, xpTotal: 0, str: 10, vit: 10, wil: 10, stam: 10 });
+  const ch = await kvGet<Character>('character', { level: 1, xpTotal: 0, str: 10, vit: 1, wil: 10, stam: 10 });
   const settings = await kvGet<{ adminKnightLevel?: number }>('settings', {});
   const equipped = await kvGet<Equipped>('equipped', {});
   const items = (await Promise.all(equippedIds(equipped).map((i) => db.loot.get(i))))
@@ -81,7 +81,7 @@ export interface CompletionResult {
   unlocked: Unlock[];
 }
 
-const DEFAULT_CHARACTER: Character = { level: 1, xpTotal: 0, str: 10, vit: 10, wil: 10 };
+const DEFAULT_CHARACTER: Character = { level: 1, xpTotal: 0, str: 10, vit: 1, wil: 10 };
 
 /** Round half-up per Global Constraints. */
 const round = (x: number): number => Math.floor(x + 0.5);
@@ -437,13 +437,14 @@ export async function recomputeDerived(): Promise<void> {
       killDateByWeek[sg.weekStart] = dayKey(new Date(sg.log[sg.log.length - 1]!.at));
     }
   }
-  const { state: streaks, emberSpentDates, body, statusByDate, sigCooldown } = foldStreaks(outcomes, {
+  const { state: streaks, emberSpentDates, body, statusByDate, sigCooldown, villainStrikes } = foldStreaks(outcomes, {
     level: ageLevel, effects: lootEffects(equippedItems), villainByWeek, strikesByWeek, killDateByWeek,
   });
   await kvSet('streaks', streaks);
   await kvSet('body', body);
   await kvSet('villainStatus', statusByDate);
   await kvSet('sigCooldown', sigCooldown);
+  await kvSet('villainStrikes', villainStrikes);
 
   // Chest entitlements — deterministic ids derived from history; never re-rolled.
   const kills = (await db.sieges.toArray())
@@ -475,7 +476,7 @@ export async function recomputeDerived(): Promise<void> {
   await kvSet<Character>('character', {
     level, xpTotal,
     str: 10 + finishedSessions,
-    vit: 10 + streaks.overallBest,
+    vit: 1 + body.sRankDays,
     wil: 10 + body.sRankDays,
     stam: 10 + body.waterDays,
   });
@@ -692,21 +693,27 @@ const round10 = (x: number): number => Math.floor(x / 10 + 0.5) * 10;
  * Scale a freshly risen boss to the knight AT ARRIVAL, spoils excluded:
  * - maxHp = 5 full-clear days of the knight's projected damage (final boss: 7),
  *   so a killer week needs 5 S-days with 2 to spare.
- * - strikeDmg = knight's pre-spoils max HP / 5 (final boss: / 4) — basic
- *   attacks alone kill an idle knight before the week is out.
+ * - strikeDmg = knight's pre-spoils max HP / 5 (final boss: / 4) PLUS the
+ *   knight's vitality (the daily heal), so healing never outruns the clock:
+ *   a good day nets exactly the /5 pace, a bad day (no heal) bites deeper.
  */
 async function scaleSiegeToKnight(siege: SiegeState, villainKey: string): Promise<void> {
   const perk = await perkContext();
   const finalBoss = villainKey === 'ultimateDarkLord';
+  // Early bands (level 1-15) are gentler: a day quicker to kill, a day
+  // slower to kill you.
+  const easy = !finalBoss && perk.level <= 15;
   const weekDmg = await weekProjectedDamage(siege.weekStart, perk);
-  const killDays = finalBoss ? 7 : 5;
+  const killDays = finalBoss ? 7 : easy ? 4 : 5;
   const gen = Math.pow(1.05, siege.generation);
   const dealt = Math.max(0, siege.maxHp - siege.hp);
   siege.maxHp = Math.max(50, round10((killDays * weekDmg / 7) * gen));
   siege.hp = Math.max(siege.killed ? 0 : 1, siege.maxHp - Math.max(dealt, siege.carryover));
-  const body = await kvGet<{ proteinDays: number }>('body', { proteinDays: 0 });
+  const body = await kvGet<{ proteinDays: number; sRankDays: number }>('body', { proteinDays: 0, sRankDays: 0 });
   const playerMax = maxHpFor(body.proteinDays);
-  siege.strikeDmg = Math.max(1, Math.ceil(playerMax / (finalBoss ? 4 : 5)));
+  const vit = 1 + body.sRankDays;
+  const divisor = finalBoss ? 4 : easy ? 6 : 5;
+  siege.strikeDmg = Math.max(1, Math.ceil(playerMax / divisor) + vit);
   siege.sigDmg = Math.round(siege.strikeDmg * 1.5);
 }
 
@@ -729,6 +736,16 @@ export async function rerollCurrentBoss(today: string): Promise<void> {
   siege.villainKey = villain.key;
   siege.name = villain.name;
   await scaleSiegeToKnight(siege, villain.key);
+  await db.sieges.put(siege);
+  await recomputeDerived();
+}
+
+/** Re-pin this week's boss to the current scaling rules, keeping the villain
+ * and the damage already dealt. Used by migration m4. */
+export async function rescaleCurrentSiege(today: string): Promise<void> {
+  const siege = await db.sieges.get(weekStartOf(today));
+  if (siege === undefined || siege.villainKey === undefined) return;
+  await scaleSiegeToKnight(siege, siege.villainKey);
   await db.sieges.put(siege);
   await recomputeDerived();
 }

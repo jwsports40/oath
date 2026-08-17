@@ -50,13 +50,14 @@ describe('ensureDay generation + completion + sealing narrative', () => {
     expect(await weekAvailableXp('2026-08-17')).toBe(395);
     const siege = await ensureSiege('2026-08-17');
     expect(siege.weekStart).toBe('2026-08-17');
-    // Knight-scaled: 5 full-clear days of projected damage. Seeded week deals
-    // GYM 3x75(crit) + ROUTINE 7x10 + WATER 7x25 = 470 -> round10(5*470/7) = 340.
-    expect(siege.maxHp).toBe(340);
-    expect(siege.hp).toBe(340);
-    // Basic strikes kill the 100-HP knight in 5 days.
-    expect(siege.strikeDmg).toBe(20);
-    expect(siege.sigDmg).toBe(30);
+    // Knight-scaled, easy band (level <= 15): 4 full-clear days of projected
+    // damage. Seeded week deals GYM 3x75(crit) + ROUTINE 7x10 + WATER 7x25 =
+    // 470 -> round10(4*470/7) = 270.
+    expect(siege.maxHp).toBe(270);
+    expect(siege.hp).toBe(270);
+    // Easy-band strikes: ceil(100/6) + VIT 1 = 18; signature 1.5x = 27.
+    expect(siege.strikeDmg).toBe(18);
+    expect(siege.sigDmg).toBe(27);
     expect(await ensureSiege('2026-08-17')).toEqual(siege); // idempotent
   });
 
@@ -74,7 +75,7 @@ describe('ensureDay generation + completion + sealing narrative', () => {
     expect(done!.status).toBe('done');
 
     const siege = (await db.sieges.get('2026-08-17'))!;
-    expect(siege.hp).toBe(265);
+    expect(siege.hp).toBe(195);
     expect(siege.log).toHaveLength(1);
     expect(siege.log[0]).toMatchObject({ label: 'GYM', amount: 75, crit: true });
 
@@ -100,7 +101,7 @@ describe('ensureDay generation + completion + sealing narrative', () => {
     expect(full!.score).toBe(85); // 11/13 → 84.6 → 85
     expect(full!.newRank).toBe('A');
     expect((await db.instances.get(water.id))!.status).toBe('done');
-    expect((await db.sieges.get('2026-08-17'))!.hp).toBe(240);
+    expect((await db.sieges.get('2026-08-17'))!.hp).toBe(170);
   });
 
   it('advancing two days seals intermediate days: required fail, optionals do not', async () => {
@@ -238,13 +239,13 @@ describe('uncompleteInstance — event removal and recompute', () => {
   it('removes completion + xp event, restores siege hp, resets live score', async () => {
     const gym = await instanceByName('2026-08-17', 'GYM');
     await completeInstance(gym.id, '2026-08-17T10:00:00.000Z');
-    expect((await db.sieges.get('2026-08-17'))!.hp).toBe(265);
+    expect((await db.sieges.get('2026-08-17'))!.hp).toBe(195);
 
     await uncompleteInstance(gym.id);
     expect((await db.instances.get(gym.id))!.status).toBe('todo');
     expect(await db.completions.count()).toBe(0);
     expect((await db.xpEvents.toArray()).filter((e) => e.source === 'quest')).toHaveLength(0);
-    expect((await db.sieges.get('2026-08-17'))!.hp).toBe(340);
+    expect((await db.sieges.get('2026-08-17'))!.hp).toBe(270);
     expect((await db.dailyScores.get('2026-08-17'))!.score).toBe(0);
     const char = await kvGet<Character | null>('character', null);
     expect(char!.xpTotal).toBe(0);

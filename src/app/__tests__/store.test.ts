@@ -160,7 +160,7 @@ describe('OathStore', () => {
 
   it('stat derivations + achievements update on every refresh', async () => {
     let s = useOath.getState();
-    expect(s.character.vit).toBe(10 + s.streaks.overallBest);
+    expect(s.character.vit).toBe(1 + s.body.sRankDays);
     expect(s.character.wil).toBe(10);
 
     // A sealed S day appears in the ledger → refresh alone refolds everything.
@@ -171,7 +171,7 @@ describe('OathStore', () => {
     await useOath.getState().refresh();
     s = useOath.getState();
     expect(s.character.wil).toBe(11); // 10 + 1 S-rank day (statboard design)
-    expect(s.character.vit).toBe(11); // 10 + overallBest 1
+    expect(s.character.vit).toBe(1 + s.body.sRankDays); // VIT: 1 + S-days
     expect(s.streaks.overallBest).toBe(1);
     expect(s.dailyScores['2000-01-05']).toBeDefined();
     expect(s.achievements.find((a) => a.id === 'beginning')!.progress).toBe(1);

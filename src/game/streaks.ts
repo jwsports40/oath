@@ -25,6 +25,10 @@ export interface DayStatus {
   mods: Partial<StatusMods>;
 }
 
+export interface VillainStrike {
+  date: string; label: string; amount: number; sig: boolean;
+}
+
 export interface DayOutcome {
   date: string; rank: Rank; score: number;
   proteinOk?: boolean; waterOk?: boolean;
@@ -47,6 +51,7 @@ export function foldStreaks(
 ): {
   state: StreakState; emberSpentDates: string[]; body: BodyState;
   statusByDate: Record<string, DayStatus>; sigCooldown: number;
+  villainStrikes: VillainStrike[];
 } {
   const fx = opts.effects ?? {};
   const armor = fx.strikeArmor ?? 0;
@@ -58,6 +63,7 @@ export function foldStreaks(
   let pendingStatus: DayStatus | null = null;        // applied to the NEXT day
   let villainBonusNext = 0;                          // MARKED FOR DEATH carry
   const statusByDate: Record<string, DayStatus> = {};
+  const villainStrikes: VillainStrike[] = [];
   const state: StreakState = {
     overall: 0, overallBest: 0,
     perfect: 0, perfectBest: 0,
@@ -106,7 +112,8 @@ export function foldStreaks(
       const badDay = !rankAtLeast(day.rank, 'C');
       let dmg: number;
       const pinnedDmg = opts.strikesByWeek?.[week];
-      if (badDay && sigCd === 0 && signatureCoin(day.date, villain.key)) {
+      const sigFired = badDay && sigCd === 0 && signatureCoin(day.date, villain.key);
+      if (sigFired) {
         dmg = pinnedDmg?.sig ?? villain.signature.dmg;
         sigCd = SIGNATURE_COOLDOWN_DAYS;
         pendingStatus = {
@@ -118,7 +125,12 @@ export function foldStreaks(
         villainBonusNext = 0;
       }
       const bulwark = Math.round(armor * mods.bulwarkMult * mods.enchantMult);
-      body.hp -= Math.max(1, dmg - bulwark - strikeArmorFromAge(opts.level));
+      const dealt = Math.max(1, dmg - bulwark - strikeArmorFromAge(opts.level));
+      body.hp -= dealt;
+      villainStrikes.push({
+        date: day.date, label: sigFired ? villain.signature.label : villain.normal.label,
+        amount: dealt, sig: sigFired,
+      });
       const usableEmbers = Math.max(0, state.embers - mods.emberSeal);
       if (body.hp <= 0) {
         if (fx.unbroken === true && (lastUnbrokenIdx === null || i - lastUnbrokenIdx >= 14)) {
@@ -139,7 +151,10 @@ export function foldStreaks(
     }
     if (rankAtLeast(day.rank, 'C')) {
       const aegis = mods.aegisDisabled ? 0 : regenBonus * mods.enchantMult;
-      const regen = Math.max(0, Math.round((regenAmount(opts.level) + aegis - mods.regenFlat) * mods.regenMult));
+      // VITALITY IS THE DAILY HEAL: VIT starts at 1 and grows +1 per S-day;
+      // high ages add their regen perk on top (regenAmount extra over base 5).
+      const vitHeal = 1 + body.sRankDays + (regenAmount(opts.level) - 5);
+      const regen = Math.max(0, Math.round((vitHeal + aegis - mods.regenFlat) * mods.regenMult));
       body.hp = Math.min(body.maxHp, body.hp + regen);
       state.overall += 1;
       state.cPlusRun += 1;
@@ -165,7 +180,7 @@ export function foldStreaks(
   }
 
   body.wounded = body.hp < body.maxHp / 2;
-  return { state, emberSpentDates, body, statusByDate, sigCooldown: sigCd };
+  return { state, emberSpentDates, body, statusByDate, sigCooldown: sigCd, villainStrikes };
 }
 
 /**

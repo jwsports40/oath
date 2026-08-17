@@ -31,9 +31,10 @@ describe('rerollCurrentBoss (migration m3)', () => {
     expect(after.hp).toBe(after.maxHp);
     expect(after.log).toHaveLength(0);
     expect(after.killed).toBe(false);
-    // Knight-scaled strikes survive the reroll (fresh 100-HP knight: 20 / 30).
-    expect(after.strikeDmg).toBe(20);
-    expect(after.sigDmg).toBe(30);
+    // Knight-scaled strikes survive the reroll (fresh easy-band knight:
+    // ceil(100/6) + VIT 1 = 18, signature 27).
+    expect(after.strikeDmg).toBe(18);
+    expect(after.sigDmg).toBe(27);
   });
 
   it('is idempotent in effect: rerolling again flips back within the same pair', async () => {

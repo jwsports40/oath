@@ -32,7 +32,7 @@ import type {
 } from '../core/types';
 import { CHEST_NAMES, MAX_ATTACHED, equippedIds, lootDesc, rollChest, CATALOG } from '../game/loot';
 import { villainByKey, villainFor, type Villain } from '../game/villains';
-import type { DayStatus } from '../game/streaks';
+import type { DayStatus, VillainStrike } from '../game/streaks';
 
 export type EffectEvent =
   | { kind: 'xp'; amount: number; at: number }
@@ -58,6 +58,7 @@ export interface OathStore {
   villain: Villain | null;         // this week's pinned boss
   sigCooldown: number;             // daily resets until its signature is charged (0 = ready)
   todayStatus: DayStatus | null;   // active 24h curse from yesterday's signature
+  weekStrikes: VillainStrike[];    // this week's landed boss attacks (for the siege log)
   week: { date: string; rank: Rank | null; isToday: boolean }[];   // Mon..Sun of current week
   goals: NutritionGoal; meals: Meal[]; macros: { cal: number; p: number; c: number; f: number };
   hydrationOz: number;
@@ -273,6 +274,7 @@ export const useOath = create<OathStore>()((set, get) => {
     villain: null,
     sigCooldown: 0,
     todayStatus: null,
+    weekStrikes: [],
     week: [],
     goals: DEFAULT_NUTRITION_GOAL,
     meals: [],
@@ -642,6 +644,8 @@ export const useOath = create<OathStore>()((set, get) => {
       const sigCooldown = await kvGet<number>('sigCooldown', 0);
       const villainStatuses = await kvGet<Record<string, DayStatus>>('villainStatus', {});
       const todayStatus = villainStatuses[today] ?? null;
+      const weekStrikes = (await kvGet<VillainStrike[]>('villainStrikes', []))
+        .filter((v) => weekStartOf(v.date) === ws);
 
       const goals = await kvGet<NutritionGoal>('nutritionGoal', DEFAULT_NUTRITION_GOAL);
       const meals = (await db.meals.where('date').equals(today).toArray())
@@ -664,7 +668,7 @@ export const useOath = create<OathStore>()((set, get) => {
         live: { score, rank, pct: score },
         streaks, body, perQuestStreaks, vigor, vigorBand: bandOf(vigor), siege, week,
         chests, loot, equipped, ageLevel,
-        villain, sigCooldown, todayStatus,
+        villain, sigCooldown, todayStatus, weekStrikes,
         goals, meals, macros, hydrationOz, dailyScores,
         programs, exercises, sessions, prs, achievements, unlocks, settings, aiQueueSize,
       });

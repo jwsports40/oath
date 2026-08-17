@@ -140,8 +140,22 @@ export function SiegeView({
   const villain = useOath((st) => st.villain);
   const sigCooldown = useOath((st) => st.sigCooldown);
   const todayStatus = useOath((st) => st.todayStatus);
-  // Latest 8 strikes, newest first.
-  const log = siege.log.slice(-8).reverse();
+  const weekStrikes = useOath((st) => st.weekStrikes);
+  // Merge your blows and the boss's landed attacks, newest first (latest 10).
+  const log = [
+    ...siege.log.map((e) => ({
+      at: e.at, boss: false, sig: e.crit,
+      text: e.crit
+        ? `${e.label.toUpperCase()} READY — CRIT ×1.5 −${e.amount}`
+        : `${e.label.toUpperCase()} STRUCK −${e.amount} HP`,
+    })),
+    ...weekStrikes.map((v) => ({
+      at: `${v.date}T23:59:59`, boss: true, sig: v.sig,
+      text: v.sig
+        ? `☠ ${v.label} — ITS SIGNATURE HIT YOU FOR ${v.amount}`
+        : `☠ ${v.label} — IT STRUCK YOU FOR ${v.amount}`,
+    })),
+  ].sort((a, b) => (a.at < b.at ? -1 : 1)).slice(-10).reverse();
   // kv 'fragments' wraps to 0 when the 3rd fragment forges a crest — show the
   // full triad on the week the forge happened.
   const shownFragments = siege.killed && fragments === 0 ? 3 : fragments;
@@ -282,12 +296,12 @@ export function SiegeView({
               style={{
                 padding: '4px 0', borderBottom: '1px solid var(--hairline)',
                 fontFamily: 'var(--font-body)', fontSize: 18,
-                color: entry.crit ? 'var(--amber)' : 'var(--text-mid)',
+                color: entry.boss
+                  ? (entry.sig ? 'var(--ember)' : 'var(--text-low)')
+                  : (entry.sig ? 'var(--amber)' : 'var(--text-mid)'),
               }}
             >
-              {entry.crit
-                ? `${entry.label.toUpperCase()} READY — CRIT ×1.5 −${entry.amount}`
-                : `${entry.label.toUpperCase()} STRUCK −${entry.amount} HP`}
+              {entry.text}
             </div>
           ))}
         </div>

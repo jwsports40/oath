@@ -75,6 +75,12 @@ async function runMigrations(): Promise<void> {
     await rerollCurrentBoss(dayKey(new Date()));
     await kvSet('migr-boss-reroll-1', true);
   }
+  // m4: re-pin this week's boss under the VIT-heal + easy-band scaling.
+  if (!(await kvGet('migr-siege-rescale-2', false))) {
+    const { rescaleCurrentSiege } = await import('./lifecycle');
+    await rescaleCurrentSiege(dayKey(new Date()));
+    await kvSet('migr-siege-rescale-2', true);
+  }
 }
 
 export async function seedIfEmpty(): Promise<void> {

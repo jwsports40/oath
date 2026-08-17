@@ -64,7 +64,8 @@ describe('foldStreaks body integration (villain ladder)', () => {
     ];
     const r = foldStreaks(days, { level: 1, villainByWeek: { '2026-08-03': 'darkDungeonKnight' } });
     expect(r.body.maxHp).toBe(102);
-    expect(r.body.hp).toBe(97);              // 102 − 5 signature
+    // Daily normal blows (3) vs VIT heal 1 chip −2 per C day, then the sig 5.
+    expect(r.body.hp).toBe(89);
     expect(r.body.proteinDays).toBe(2);
     expect(r.sigCooldown).toBe(2);
     // 24h status lands on the FOLLOWING day, so none recorded yet.
@@ -87,7 +88,7 @@ describe('foldStreaks body integration (villain ladder)', () => {
   it('boss strikes first: at 0 HP it steals an ember BEFORE the streak-save', () => {
     // Colossus-in-reverse: shrink the pool so strikes are lethal (mechanism test).
     const long: DayOutcome[] = [
-      ...Array.from({ length: 14 }, (_, i) => day('C', 60, { date: `d${i}` })),
+      ...Array.from({ length: 14 }, (_, i) => day('S', 80, { date: `d${i}` })),
       day('F', 10, { date: '2026-08-06' }),  // coin hits: sig 5: hp 5 -> 0 -> STEAL, hp=ceil(5/2)=3
     ];
     const r = foldStreaks(long, { level: 1, effects: { maxHpBonus: -95 }, villainByWeek: { '2026-08-03': 'darkDungeonKnight' } });
