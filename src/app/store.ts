@@ -275,6 +275,21 @@ export const useOath = create<OathStore>()((set, get) => {
         await syncNow(url);                       // final save under the current login
       } catch { /* keep going — the wipe below only follows a failed PUSH, never a failed PULL */ }
       const hash = pin === null ? null : hashPin(pin);
+      // The owner's FIRST admin login adopts the current save instead of
+      // wiping — their ledger moves under the admin PIN.
+      if (hash !== null && isAdminHash(hash)) {
+        let exists = false;
+        try {
+          exists = (await fetch(`${url}/state?p=${hash}`, { signal: AbortSignal.timeout(8000) })).ok;
+        } catch { /* treat as absent */ }
+        if (!exists) {
+          await kvSet('pinHash', hash);
+          try { await syncNow(url); } catch { /* pushed on next sync */ }
+          sessionStorage.setItem('oath-unlocked', '1');
+          window.location.reload();
+          return null;
+        }
+      }
       await db.delete();
       await db.open();
       await kvSet('pinHash', hash);
