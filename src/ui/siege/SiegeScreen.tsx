@@ -136,6 +136,9 @@ export function SiegeView({
   const risen = siege.generation > 0;
   const displayName = risen && !siege.name.includes('RISEN') ? `RISEN · ${siege.name}` : siege.name;
   const hpPct = siege.maxHp > 0 ? Math.max(0, Math.min(100, (siege.hp / siege.maxHp) * 100)) : 0;
+  const villain = useOath((st) => st.villain);
+  const sigCooldown = useOath((st) => st.sigCooldown);
+  const todayStatus = useOath((st) => st.todayStatus);
   // Latest 8 strikes, newest first.
   const log = siege.log.slice(-8).reverse();
   // kv 'fragments' wraps to 0 when the 3rd fragment forges a crest — show the
@@ -178,12 +181,55 @@ export function SiegeView({
           </div>
           <div
             style={{
-              marginTop: 4, fontFamily: 'var(--font-body)', fontSize: 20, color: 'var(--text-hi)',
+              marginTop: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              fontFamily: 'var(--font-body)', fontSize: 20, color: 'var(--text-hi)',
             }}
           >
-            {siege.hp.toLocaleString()} / {siege.maxHp.toLocaleString()} HP
+            <span>{siege.hp.toLocaleString()} / {siege.maxHp.toLocaleString()} HP</span>
+            {/* Signature charge: two diamonds; one clears each daily reset. */}
+            <span style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+              <span style={{ fontFamily: 'var(--font-label)', fontSize: 6, letterSpacing: '0.15em', color: sigCooldown === 0 ? 'var(--ember)' : 'var(--text-faint)' }}>
+                {sigCooldown === 0 ? 'SIGNATURE READY' : 'CHARGING'}
+              </span>
+              {[0, 1].map((k) => (
+                <span
+                  key={k}
+                  style={{
+                    width: 7, height: 7, transform: 'rotate(45deg)',
+                    border: '1px solid var(--ember)',
+                    background: k < sigCooldown ? 'var(--bg-deep)' : 'var(--ember)',
+                    boxShadow: sigCooldown === 0 ? '0 0 5px rgba(226,91,74,0.6)' : 'none',
+                  }}
+                />
+              ))}
+            </span>
           </div>
         </div>
+
+        {/* This villain's attacks */}
+        {villain !== null && (
+          <div style={{ border: '1px solid var(--hairline)', padding: '6px 10px', fontFamily: 'var(--font-body)', fontSize: 16 }}>
+            <div style={{ color: 'var(--text-mid)' }}>
+              {villain.normal.label} — {villain.normal.dmg} HP
+            </div>
+            <div style={{ color: 'var(--ember)' }}>
+              {villain.signature.label} — {villain.signature.dmg} HP · {villain.signature.desc}
+            </div>
+          </div>
+        )}
+
+        {/* Active curse from yesterday's signature */}
+        {todayStatus !== null && (
+          <div
+            style={{
+              border: '1px solid var(--ember)', padding: '6px 10px', textAlign: 'center',
+              fontFamily: 'var(--font-body)', fontSize: 17, color: 'var(--ember)',
+              textShadow: '0 0 6px rgba(226,91,74,0.4)',
+            }}
+          >
+            {todayStatus.label} — {todayStatus.desc}
+          </div>
+        )}
 
         {/* Arena: knight vs boss */}
         <div

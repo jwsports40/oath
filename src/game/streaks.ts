@@ -9,9 +9,20 @@
 //   sub-C) but not overall.
 import type { Rank, StreakState } from '../core/types';
 import {
-  emberCapacity, maxHpFor, regenAmount, strikeDamage, type BodyState,
+  emberCapacity, maxHpFor, regenAmount, strikeArmorFromAge, type BodyState,
 } from './body';
 import type { LootEffects } from './loot';
+import {
+  NO_MODS, SIGNATURE_COOLDOWN_DAYS, mergeMods, villainByKey, villainFor, type StatusMods,
+} from './villains';
+import { weekStartOf } from '../core/dates';
+
+export interface DayStatus {
+  villain: string;   // villain key
+  label: string;     // signature name
+  desc: string;
+  mods: Partial<StatusMods>;
+}
 
 export interface DayOutcome {
   date: string; rank: Rank; score: number;
@@ -26,13 +37,24 @@ export function rankAtLeast(r: Rank, min: Rank): boolean {
 
 export function foldStreaks(
   days: DayOutcome[],
-  opts: { level: number; effects?: Partial<LootEffects> } = { level: 1 },
-): { state: StreakState; emberSpentDates: string[]; body: BodyState } {
+  opts: {
+    level: number; effects?: Partial<LootEffects>;
+    villainByWeek?: Record<string, string>;   // weekStart -> pinned villain key
+  } = { level: 1 },
+): {
+  state: StreakState; emberSpentDates: string[]; body: BodyState;
+  statusByDate: Record<string, DayStatus>; sigCooldown: number;
+} {
   const fx = opts.effects ?? {};
   const armor = fx.strikeArmor ?? 0;
   const hpBonus = fx.maxHpBonus ?? 0;
   const regenBonus = fx.regenBonus ?? 0;
   let lastUnbrokenIdx: number | null = null;
+  // Villain ladder state
+  let sigCd = 0;                                     // daily resets until signature ready
+  let pendingStatus: DayStatus | null = null;        // applied to the NEXT day
+  let villainBonusNext = 0;                          // MARKED FOR DEATH carry
+  const statusByDate: Record<string, DayStatus> = {};
   const state: StreakState = {
     overall: 0, overallBest: 0,
     perfect: 0, perfectBest: 0,
@@ -48,23 +70,53 @@ export function foldStreaks(
 
   for (let i = 0; i < days.length; i++) {
     const day = days[i]!;
+    // Signature cooldown ticks down at each daily reset.
+    if (sigCd > 0) sigCd -= 1;
+    // Yesterday's signature status applies to THIS day.
+    let mods: StatusMods = NO_MODS;
+    if (pendingStatus !== null) {
+      statusByDate[day.date] = pendingStatus;
+      mods = mergeMods([pendingStatus.mods]);
+      villainBonusNext += mods.villainDmgBonus;
+      pendingStatus = null;
+    }
     // Body accounting first: nutrition grows the pool, then the day resolves.
     if (day.proteinOk === true) {
       body.proteinDays += 1;
-      body.maxHp = maxHpFor(body.proteinDays) + hpBonus;
     }
+    body.maxHp = Math.max(1, maxHpFor(body.proteinDays) + hpBonus - mods.maxHpDelta);
+    body.hp = Math.min(body.hp, body.maxHp);
     if (day.waterOk === true) body.waterDays += 1;
     if (rankAtLeast(day.rank, 'S')) body.sRankDays += 1;
 
     if (rankAtLeast(day.rank, 'C')) {
-      body.hp = Math.min(body.maxHp, body.hp + regenAmount(opts.level) + regenBonus);
+      const aegis = mods.aegisDisabled ? 0 : regenBonus * mods.enchantMult;
+      const regen = Math.max(0, Math.round((regenAmount(opts.level) + aegis - mods.regenFlat) * mods.regenMult));
+      body.hp = Math.min(body.maxHp, body.hp + regen);
       state.overall += 1;
       state.cPlusRun += 1;
       if (state.cPlusRun % 7 === 0 && state.embers < capacity) state.embers += 1;
     } else {
-      // The boss strikes FIRST. If it drops you to 0 and an ember is banked,
-      // it steals that ember before the streak-save can use it.
-      body.hp -= Math.max(1, strikeDamage(opts.level) - armor);
+      // The villain strikes FIRST. Signature when charged, else the normal blow.
+      const week = weekStartOf(day.date);
+      const pinned = opts.villainByWeek?.[week];
+      const villain = (pinned !== undefined ? villainByKey(pinned) : undefined)
+        ?? villainFor(opts.level, week);
+      let dmg: number;
+      if (sigCd === 0) {
+        dmg = villain.signature.dmg;
+        sigCd = SIGNATURE_COOLDOWN_DAYS;
+        pendingStatus = {
+          villain: villain.key, label: villain.signature.label,
+          desc: villain.signature.desc, mods: villain.signature.mods,
+        };
+      } else {
+        dmg = villain.normal.dmg + villainBonusNext;
+        villainBonusNext = 0;
+      }
+      const bulwark = Math.round(armor * mods.bulwarkMult * mods.enchantMult);
+      body.hp -= Math.max(1, dmg - bulwark - strikeArmorFromAge(opts.level));
+      const usableEmbers = Math.max(0, state.embers - mods.emberSeal);
       if (body.hp <= 0) {
         if (fx.unbroken === true && (lastUnbrokenIdx === null || i - lastUnbrokenIdx >= 14)) {
           // Totem of the Unbroken: survive at 1 HP, the boss gets nothing.
@@ -73,7 +125,7 @@ export function foldStreaks(
         } else if (fx.wardEmber === true) {
           // Totem of the Undying Flame: the boss can never steal an ember.
           body.hp = 0;
-        } else if (state.embers > 0) {
+        } else if (usableEmbers > 0) {
           state.embers -= 1;
           body.emberSteals += 1;
           body.hp = Math.ceil(body.maxHp / 2);
@@ -81,7 +133,7 @@ export function foldStreaks(
           body.hp = 0;
         }
       }
-      if (state.embers > 0) {
+      if (Math.max(0, state.embers - mods.emberSeal) > 0) {
         // Auto-burn an ember to preserve the overall streak.
         state.embers -= 1;
         emberSpentDates.push(day.date);
@@ -101,7 +153,7 @@ export function foldStreaks(
   }
 
   body.wounded = body.hp < body.maxHp / 2;
-  return { state, emberSpentDates, body };
+  return { state, emberSpentDates, body, statusByDate, sigCooldown: sigCd };
 }
 
 /**

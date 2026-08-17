@@ -37,6 +37,7 @@ export interface SiegeState {
   weekStart:string; name:string; maxHp:number; hp:number; generation:number;   // generation increments on survive
   carryover:number; overkill:number; log:{at:string; label:string; amount:number; crit:boolean}[];
   killed:boolean; fragmentsAwarded:boolean;
+  villainKey?:string;   // pinned at week start — leveling mid-week never switches the boss
 }
 export interface WorkoutProgram { id:string; name:string; days:WorkoutDay[]; active:boolean; }
 export interface WorkoutDay { id:string; name:string; weekday:number[]; exercises:PlannedExercise[]; }  // weekday 1..7

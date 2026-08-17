@@ -31,6 +31,8 @@ import type {
   WorkoutSession,
 } from '../core/types';
 import { CHEST_NAMES, MAX_ATTACHED, equippedIds, lootDesc, rollChest, CATALOG } from '../game/loot';
+import { villainByKey, villainFor, type Villain } from '../game/villains';
+import type { DayStatus } from '../game/streaks';
 
 export type EffectEvent =
   | { kind: 'xp'; amount: number; at: number }
@@ -53,6 +55,9 @@ export interface OathStore {
   perQuestStreaks: Record<string, number>;          // templateId → streak
   vigor: number; vigorBand: string;
   siege: SiegeState | null;
+  villain: Villain | null;         // this week's pinned boss
+  sigCooldown: number;             // daily resets until its signature is charged (0 = ready)
+  todayStatus: DayStatus | null;   // active 24h curse from yesterday's signature
   week: { date: string; rank: Rank | null; isToday: boolean }[];   // Mon..Sun of current week
   goals: NutritionGoal; meals: Meal[]; macros: { cal: number; p: number; c: number; f: number };
   hydrationOz: number;
@@ -265,6 +270,9 @@ export const useOath = create<OathStore>()((set, get) => {
     vigor: INITIAL_VIGOR,
     vigorBand: bandOf(INITIAL_VIGOR),
     siege: null,
+    villain: null,
+    sigCooldown: 0,
+    todayStatus: null,
     week: [],
     goals: DEFAULT_NUTRITION_GOAL,
     meals: [],
@@ -628,6 +636,12 @@ export const useOath = create<OathStore>()((set, get) => {
       }));
 
       const siege = (await db.sieges.get(ws)) ?? null;
+      const villain = siege?.villainKey !== undefined
+        ? villainByKey(siege.villainKey) ?? null
+        : villainFor(ageLevel, ws);
+      const sigCooldown = await kvGet<number>('sigCooldown', 0);
+      const villainStatuses = await kvGet<Record<string, DayStatus>>('villainStatus', {});
+      const todayStatus = villainStatuses[today] ?? null;
 
       const goals = await kvGet<NutritionGoal>('nutritionGoal', DEFAULT_NUTRITION_GOAL);
       const meals = (await db.meals.where('date').equals(today).toArray())
@@ -650,6 +664,7 @@ export const useOath = create<OathStore>()((set, get) => {
         live: { score, rank, pct: score },
         streaks, body, perQuestStreaks, vigor, vigorBand: bandOf(vigor), siege, week,
         chests, loot, equipped, ageLevel,
+        villain, sigCooldown, todayStatus,
         goals, meals, macros, hydrationOz, dailyScores,
         programs, exercises, sessions, prs, achievements, unlocks, settings, aiQueueSize,
       });

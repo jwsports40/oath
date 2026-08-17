@@ -48,11 +48,14 @@ export function dmgMult(level: number): number {
 export function healPct(level: number): number { return has(level, 40) ? 0.0125 : 0.015; }
 export function carryFactor(level: number): number { return has(level, 100) ? 0.5 : 0.25; }
 export function emberCapacity(level: number): number { return has(level, 60) ? 3 : 2; }
-export function strikeDamage(level: number): number { return has(level, 80) ? 8 : 10; }
+/** LEGENDARY DUNGEON SLAYER perk: villain strikes hit 2 softer. */
+export function strikeArmorFromAge(level: number): number { return has(level, 80) ? 2 : 0; }
+export function strikeDamage(level: number): number { return has(level, 80) ? 8 : 10; } // legacy flat strike (pre-ladder folds)
 export function regenAmount(level: number): number { return has(level, 90) ? 8 : 5; }
 
 export function maxHpFor(proteinDays: number): number {
-  return Math.min(100, 20 + proteinDays); // +1 max HP per protein-goal day
+  // Villain ladder balance: 100 base HP, +1 per protein-goal day, cap 150.
+  return Math.min(150, 100 + proteinDays);
 }
 
 export interface BodyState {

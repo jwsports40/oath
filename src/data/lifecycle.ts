@@ -16,6 +16,8 @@ import {
   carryFactor, critMult, dmgMult, healPct, optionalCap, workoutXpMult,
 } from '../game/body';
 import { chestEntitlements, equippedIds, lootEffects, type LootEffects } from '../game/loot';
+import { NO_MODS, mergeMods, villainByKey, villainFor, type StatusMods } from '../game/villains';
+import type { DayStatus } from '../game/streaks';
 import { ARMOR_AGES, DIFFICULTY, TITLES } from '../core/types';
 import { DEFAULT_NUTRITION_GOAL } from './seed';
 import type {
@@ -27,19 +29,44 @@ import type {
  * Current perk context: cached stats, the EFFECTIVE age level (admin override
  * wins), and the aggregated effects of the attached loot.
  */
-async function perkContext(): Promise<{
-  level: number; ageLevel: number; str: number; wil: number; stam: number; fx: LootEffects;
+async function perkContext(date?: string): Promise<{
+  level: number; ageLevel: number; str: number; wil: number; stam: number;
+  fx: LootEffects; mods: StatusMods;
 }> {
   const ch = await kvGet<Character>('character', { level: 1, xpTotal: 0, str: 10, vit: 10, wil: 10, stam: 10 });
   const settings = await kvGet<{ adminKnightLevel?: number }>('settings', {});
   const equipped = await kvGet<Equipped>('equipped', {});
   const items = (await Promise.all(equippedIds(equipped).map((i) => db.loot.get(i))))
     .filter((x): x is LootItem => x !== undefined);
+  // Villain status for the given day (a signature fired the previous evening).
+  let mods: StatusMods = NO_MODS;
+  if (date !== undefined) {
+    const statuses = await kvGet<Record<string, DayStatus>>('villainStatus', {});
+    const st = statuses[date];
+    if (st !== undefined) mods = mergeMods([st.mods]);
+  }
+  // ARCANE SUPPRESSION / NULLIFICATION: scale token and enchantment power.
+  const scale = (fx: LootEffects, m: number): LootEffects => ({
+    ...fx,
+    xpAll: fx.xpAll * m, xpWorkout: fx.xpWorkout * m, xpMain: fx.xpMain * m, xpFirst: fx.xpFirst * m,
+    strikeArmor: fx.strikeArmor * m, siegeDmg: fx.siegeDmg * m,
+    healPtDown: fx.healPtDown * m, regenBonus: fx.regenBonus * m,
+  });
+  const tokens = scale(lootEffects(items.filter((i) => i.genre === 'token')), mods.tokenMult);
+  const enchants = scale(lootEffects(items.filter((i) => i.genre === 'enchant')), mods.enchantMult);
+  const totems = lootEffects(items.filter((i) => i.genre === 'totem'));
+  const fx: LootEffects = {
+    xpAll: tokens.xpAll, xpWorkout: tokens.xpWorkout, xpMain: tokens.xpMain, xpFirst: tokens.xpFirst,
+    strikeArmor: enchants.strikeArmor, siegeDmg: enchants.siegeDmg,
+    healPtDown: enchants.healPtDown, regenBonus: enchants.regenBonus,
+    maxHpBonus: totems.maxHpBonus, carryBonus: totems.carryBonus,
+    wardEmber: totems.wardEmber, unbroken: totems.unbroken,
+  };
   return {
     level: ch.level,
     ageLevel: settings.adminKnightLevel ?? ch.level,
     str: ch.str, wil: ch.wil, stam: ch.stam ?? 10,
-    fx: lootEffects(items),
+    fx, mods,
   };
 }
 
@@ -219,8 +246,9 @@ export async function completeInstance(id: string, at: string): Promise<Completi
   const unlockIdsBefore = new Set((await kvGet<Unlock[]>('unlocks', [])).map((u) => u.id));
 
   const streak = await questStreakFor(inst);
-  const perk = await perkContext();
-  // XP multipliers: STR + TRAINED KNIGHT perk (workouts) plus attached tokens.
+  const perk = await perkContext(inst.date);
+  // XP multipliers: STR + TRAINED KNIGHT perk (workouts) plus attached tokens,
+  // minus any active villain curse (signature status from yesterday).
   const firstOfDay = (await db.completions.where('date').equals(inst.date).count()) === 0;
   let bonus = perk.fx.xpAll
     + (inst.main ? perk.fx.xpMain : 0)
@@ -228,6 +256,11 @@ export async function completeInstance(id: string, at: string): Promise<Completi
   if (inst.kind === 'workout') {
     bonus += (workoutXpMult(perk.str, perk.ageLevel) - 1) + perk.fx.xpWorkout;
   }
+  bonus -= perk.mods.xpAll
+    + (inst.main ? perk.mods.xpMain : 0)
+    + (inst.kind === 'workout' ? perk.mods.xpWorkout : 0)
+    + (firstOfDay ? perk.mods.xpFirst : 0);
+  bonus = Math.max(-0.9, bonus);
   const baseXp = round(DIFFICULTY[inst.difficulty].xp * (1 + bonus));
   const xp = xpAward(baseXp, streak);
   await db.completions.add({
@@ -249,6 +282,7 @@ export async function completeInstance(id: string, at: string): Promise<Completi
     const struck = dealDamage(siege, xp, inst.main, inst.name, at, {
       crit: critMult(perk.wil, perk.ageLevel),
       dmg: dmgMult(perk.ageLevel) + perk.fx.siegeDmg,
+      flat: perk.mods.playerDmgBonus,
     });
     siegeDamage = struck.log[struck.log.length - 1].amount;
     siegeKilled = struck.killed;
@@ -390,11 +424,17 @@ export async function recomputeDerived(): Promise<void> {
   const equippedItems = (await Promise.all(equippedIds(equippedSlots).map((i) => db.loot.get(i))))
     .filter((x): x is LootItem => x !== undefined);
   const ageLevel = settings.adminKnightLevel ?? level;
-  const { state: streaks, emberSpentDates, body } = foldStreaks(outcomes, {
-    level: ageLevel, effects: lootEffects(equippedItems),
+  const villainByWeek: Record<string, string> = {};
+  for (const sg of await db.sieges.toArray()) {
+    if (sg.villainKey !== undefined) villainByWeek[sg.weekStart] = sg.villainKey;
+  }
+  const { state: streaks, emberSpentDates, body, statusByDate, sigCooldown } = foldStreaks(outcomes, {
+    level: ageLevel, effects: lootEffects(equippedItems), villainByWeek,
   });
   await kvSet('streaks', streaks);
   await kvSet('body', body);
+  await kvSet('villainStatus', statusByDate);
+  await kvSet('sigCooldown', sigCooldown);
 
   // Chest entitlements — deterministic ids derived from history; never re-rolled.
   const kills = (await db.sieges.toArray())
@@ -615,6 +655,14 @@ export async function ensureSiege(today: string): Promise<SiegeState> {
     weekStart, await weekAvailableXp(weekStart), prior,
     carryFactor(perk.ageLevel) + perk.fx.carryBonus,
   );
+  // Pin this week's villain at creation — leveling mid-week never switches it,
+  // and a RISEN boss is the same monster returning from last week.
+  const returning = prior !== undefined && !prior.killed && prior.villainKey !== undefined
+    ? villainByKey(prior.villainKey)
+    : undefined;
+  const villain = returning ?? villainFor(perk.ageLevel, weekStart);
+  siege.villainKey = villain.key;
+  siege.name = siege.generation > 0 ? `${villain.name} RISEN` : villain.name;
   await db.sieges.add(siege);
   return siege;
 }

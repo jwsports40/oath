@@ -42,10 +42,10 @@ describe('perk helpers', () => {
     expect(regenAmount(1)).toBe(5);
     expect(regenAmount(90)).toBe(8);
   });
-  it('maxHp from protein days, cap 100', () => {
-    expect(maxHpFor(0)).toBe(20);
-    expect(maxHpFor(10)).toBe(30);
-    expect(maxHpFor(200)).toBe(100);
+  it('maxHp: 100 base, +1 per protein day, cap 150', () => {
+    expect(maxHpFor(0)).toBe(100);
+    expect(maxHpFor(10)).toBe(110);
+    expect(maxHpFor(200)).toBe(150);
   });
   it('all 11 ages have a name and perk line', () => {
     expect(AGE_PERKS).toHaveLength(11);
@@ -54,41 +54,51 @@ describe('perk helpers', () => {
   });
 });
 
-describe('foldStreaks body integration', () => {
-  it('regens on C+ days and takes strikes on sub-C days', () => {
+describe('foldStreaks body integration (villain ladder)', () => {
+  it('regens on C+ days; a charged villain opens with its SIGNATURE on a bad day', () => {
     const days: DayOutcome[] = [
-      day('C', 60, { proteinOk: true }),   // protein day: max 22, regen -> full
-      day('C', 60, { proteinOk: true }),   // max 24
-      day('F', 10, {}),                    // strike -10
+      day('C', 60, { date: '2026-08-03', proteinOk: true }),
+      day('C', 60, { date: '2026-08-04', proteinOk: true }),
+      day('F', 10, { date: '2026-08-05' }),   // signature (charged): band-0 sig = 5 dmg
     ];
-    const { body } = foldStreaks(days, { level: 1 });
-    expect(body.maxHp).toBe(22);
-    expect(body.hp).toBe(12);
-    expect(body.proteinDays).toBe(2);
-    expect(body.wounded).toBe(false);
+    const r = foldStreaks(days, { level: 1 });
+    expect(r.body.maxHp).toBe(102);
+    expect(r.body.hp).toBe(97);              // 102 − 5 signature
+    expect(r.body.proteinDays).toBe(2);
+    expect(r.sigCooldown).toBe(2);
+    // 24h status lands on the FOLLOWING day, so none recorded yet.
+    expect(Object.keys(r.statusByDate)).toHaveLength(0);
+  });
+  it('signature fires every other bad day; status lands on the following day', () => {
+    const days: DayOutcome[] = ['2026-08-03', '2026-08-04', '2026-08-05', '2026-08-06']
+      .map((d) => day('F', 10, { date: d }));
+    const r = foldStreaks(days, { level: 1 });
+    // sig day1 -> status day2; day2 normal (cd); day3 sig again -> status day4
+    expect(r.statusByDate['2026-08-04']).toBeDefined();
+    expect(r.statusByDate['2026-08-05']).toBeUndefined();
+    expect(r.statusByDate['2026-08-06']).toBeDefined();
   });
   it('boss strikes first: at 0 HP it steals an ember BEFORE the streak-save', () => {
-    // 14 C+ days: 2 embers banked, maxHp 20 (no protein), hp full.
+    // Colossus-in-reverse: shrink the pool so strikes are lethal (mechanism test).
     const long: DayOutcome[] = [
       ...Array.from({ length: 14 }, (_, i) => day('C', 60, { date: `d${i}` })),
-      day('F', 10, { date: 'f1' }), // strike: hp 20->10 (no steal); streak-save burns ember (2->1)
-      day('F', 10, { date: 'f2' }), // strike: hp 10->0 -> boss STEALS the last ember, hp=half(20)=10;
-                                    // streak-save then finds none -> overall streak breaks
+      day('F', 10, { date: 'f1' }),  // signature 5: hp 5 -> 0 -> STEAL (2->1), hp=ceil(5/2)=3
     ];
-    const r = foldStreaks(long, { level: 1 });
-    expect(r.state.embers).toBe(0);
-    expect(r.body.hp).toBe(10);
-    expect(r.state.overall).toBe(0);       // the sting: insurance stolen, streak lost
+    const r = foldStreaks(long, { level: 1, effects: { maxHpBonus: -95 } });
+    expect(r.body.maxHp).toBe(5);
     expect(r.body.emberSteals).toBe(1);
+    expect(r.body.hp).toBe(3);
+    expect(r.state.embers).toBe(0);          // one stolen by the boss, one burned by the streak-save
+    expect(r.state.overall).toBe(15);        // the burn still saved the streak
   });
   it('with no embers banked, hp floors at 0 and wounded shows', () => {
     const long: DayOutcome[] = [
-      ...Array.from({ length: 3 }, (_, i) => day('C', 60, { date: `d${i}` })), // no ember yet
-      day('F', 10, { date: 'f1' }),
-      day('F', 10, { date: 'f2' }),
-      day('F', 10, { date: 'f3' }),
+      ...Array.from({ length: 3 }, (_, i) => day('C', 60, { date: `d${i}` })),
+      day('F', 10, { date: 'f1' }),  // sig 5
+      day('F', 10, { date: 'f2' }),  // normal 3
+      day('F', 10, { date: 'f3' }),  // sig 5
     ];
-    const r = foldStreaks(long, { level: 1 });
+    const r = foldStreaks(long, { level: 1, effects: { maxHpBonus: -95 } });
     expect(r.body.hp).toBe(0);
     expect(r.body.wounded).toBe(true);
     expect(r.body.emberSteals).toBe(0);

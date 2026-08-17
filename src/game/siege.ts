@@ -85,9 +85,9 @@ export function dealDamage(
   isMain: boolean,
   label: string,
   at: string,
-  mults: { crit?: number; dmg?: number } = {},
+  mults: { crit?: number; dmg?: number; flat?: number } = {},
 ): SiegeState {
-  const damage = round(xp * (mults.dmg ?? 1) * (isMain ? (mults.crit ?? 1.5) : 1));
+  const damage = round(xp * (mults.dmg ?? 1) * (isMain ? (mults.crit ?? 1.5) : 1)) + (mults.flat ?? 0);
   const excess = Math.max(0, damage - s.hp);
   const hp = Math.max(0, s.hp - damage);
   return {
