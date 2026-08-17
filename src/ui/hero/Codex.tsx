@@ -94,9 +94,11 @@ export default function Codex({ onClose }: { onClose: () => void }) {
           <SectionLabel>DAYS, RANKS &amp; EMBERS</SectionLabel>
           <div style={{ ...bodyText, fontSize: 14, color: 'var(--text-low)', marginBottom: 10, lineHeight: 1.5 }}>
             EACH DAY SEALS AT MIDNIGHT AND EARNS A RANK, F THROUGH S+.
-            C OR BETTER KEEPS YOUR STREAK ALIVE; EVERY 7 STRAIGHT C+ DAYS BANKS AN EMBER.
+            C OR BETTER KEEPS YOUR STREAK ALIVE.
+            EMBERS: EVERY 7 STRAIGHT C+ DAYS BANKS ONE. YOU CAN HOLD 2 — 3 FROM ABYSS KNIGHT (LEVEL 60+).
             ON A BAD DAY AN EMBER AUTO-BURNS TO SAVE THE STREAK — BUT THE BOSS STRIKES FIRST,
             AND IF IT DROPS YOU TO 0 HP IT STEALS AN EMBER BEFORE THE SAVE, RALLYING YOU AT HALF HP.
+            SOME SIGNATURE CURSES SEAL AN EMBER FOR 24H; THE UNDYING FLAME TOTEM BLOCKS ALL THEFT.
             QUESTS ONLY APPEAR — AND ONLY COUNT — ON THE DAYS THEY ARE SCHEDULED.
           </div>
 
@@ -178,7 +180,7 @@ export default function Codex({ onClose }: { onClose: () => void }) {
                   style={{ width: '100%', imageRendering: 'pixelated', display: 'block' }}
                 />
                 <div style={{ ...bodyText, fontSize: 14, color: 'var(--text-mid)', marginTop: 4 }}>
-                  {d.desc}
+                  {d.desc.replace('{v}', String(d.value ?? ''))}
                 </div>
               </div>
             ))}

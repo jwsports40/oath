@@ -38,7 +38,7 @@ export const CATALOG: LootDef[] = [
   { key: 'totemUndyingFlame', genre: 'totem', name: 'TOTEM OF THE UNDYING FLAME',
     desc: 'THE BOSS CAN NEVER STEAL YOUR EMBERS', value: 1 },
   { key: 'totemColossus', genre: 'totem', name: 'TOTEM OF THE COLOSSUS',
-    desc: 'MAX HP ×{v}', value: 1.2 },
+    desc: 'MAX HP {v}X', value: 1.2 },
   { key: 'totemWarpath', genre: 'totem', name: 'TOTEM OF THE WARPATH',
     desc: 'OVERKILL CARRIES +25% MORE INTO NEXT WEEK', value: 0.25 },
 ];
