@@ -92,6 +92,33 @@ export function resolveBridgeUrl(configured: string | undefined): string | null 
   return defaultBridgeUrl();
 }
 
+// The serve script publishes each new tunnel URL here; the deployed app
+// discovers it automatically so the bridge reconnects without any pasting.
+const DISCOVERY_URL = 'https://raw.githubusercontent.com/jwsports40/oath/bridge/bridge-url.txt';
+let discovered: { url: string | null; at: number } | null = null;
+
+/**
+ * Async resolution: explicit Settings URL > same-host default (http pages) >
+ * the auto-published tunnel URL (cached 5 minutes).
+ */
+export async function resolveBridgeUrlAuto(configured: string | undefined): Promise<string | null> {
+  const direct = resolveBridgeUrl(configured);
+  if (direct !== null) return direct;
+  if (typeof fetch === 'undefined') return null;
+  const now = Date.now();
+  if (discovered !== null && now - discovered.at < 5 * 60_000) return discovered.url;
+  try {
+    const res = await fetch(`${DISCOVERY_URL}?t=${now}`, { signal: AbortSignal.timeout(4000) });
+    const text = (await res.text()).trim();
+    const url = res.ok && text.startsWith('https://') ? text.replace(/\/+$/, '') : null;
+    discovered = { url, at: now };
+    return url;
+  } catch {
+    discovered = { url: null, at: now };
+    return null;
+  }
+}
+
 export async function bridgeAvailable(baseUrl: string): Promise<boolean> {
   try {
     const res = await fetch(`${baseUrl}/health`, { signal: AbortSignal.timeout(1500) });

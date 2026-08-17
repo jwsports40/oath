@@ -2,7 +2,7 @@
 // cloudflared is installed, a free https tunnel to the bridge so the hosted app
 // (GitHub Pages) can reach it from anywhere. The tunnel URL is printed below —
 // paste it into the app: Hero → Settings → SCRIBE → BRIDGE URL.
-import { spawn } from 'node:child_process';
+import { spawn, execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 
 // Freshly-installed cloudflared may not be on PATH in already-open shells.
@@ -30,6 +30,29 @@ function run(name, cmd, args, { onData, optional = false } = {}) {
 const children = [];
 children.push(run('app', 'npx', ['vite', 'preview', '--host']));
 children.push(run('scribe', 'node', ['server/scribe-proxy.mjs']));
+
+// Publish the tunnel URL to the repo's 'bridge' branch so the deployed app
+// AUTO-CONNECTS — no more pasting the URL into Settings after each restart.
+function publishBridgeUrl(url) {
+  try {
+    const repo = 'jwsports40/oath';
+    const path = 'bridge-url.txt';
+    let sha = null;
+    try {
+      const cur = JSON.parse(execFileSync('gh', ['api', `repos/${repo}/contents/${path}?ref=bridge`], { encoding: 'utf8' }));
+      sha = cur.sha;
+    } catch { /* first publish */ }
+    const args = ['api', '-X', 'PUT', `repos/${repo}/contents/${path}`,
+      '-f', `message=bridge: ${url}`,
+      '-f', `content=${Buffer.from(url).toString('base64')}`,
+      '-f', 'branch=bridge'];
+    if (sha !== null) args.push('-f', `sha=${sha}`);
+    execFileSync('gh', args, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    console.log('[tunnel] bridge URL published — the app will auto-connect');
+  } catch (e) {
+    console.log('[tunnel] bridge URL publish failed (paste it manually):', e.message);
+  }
+}
 
 // Quick tunnel (no Cloudflare account needed). URL changes on each restart.
 let announced = false;

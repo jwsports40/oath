@@ -21,7 +21,7 @@ import { perQuestStreak } from '../game/streaks';
 import type { BodyState } from '../game/body';
 import { INITIAL_VIGOR, vigorBand as bandOf } from '../game/vigor';
 import { scheduleNotifications } from './notify';
-import { resolveBridgeUrl } from '../ai/nutrition';
+import { resolveBridgeUrlAuto } from '../ai/nutrition';
 import { syncNow } from '../data/sync';
 import type { Tab } from './tabs';
 import type {
@@ -204,7 +204,7 @@ export const useOath = create<OathStore>()((set, get) => {
   let suppressSync = false;
   let syncTimer: ReturnType<typeof setTimeout> | null = null;
   const doSync = async (): Promise<void> => {
-    const url = resolveBridgeUrl(get().settings.bridgeUrl);
+    const url = await resolveBridgeUrlAuto(get().settings.bridgeUrl);
     if (url === null || typeof fetch === 'undefined') { set({ syncStatus: 'off' }); return; }
     if (suppressSync) return;
     suppressSync = true;
