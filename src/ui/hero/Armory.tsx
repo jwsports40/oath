@@ -48,24 +48,25 @@ export default function Armory() {
   const wornLevel = AGE_PERKS.filter(([lv]) => lv <= level).map(([lv]) => lv).pop() ?? 1;
 
   // Cosmetic unlocks beyond the ages (spec §3): helms, capes, crests.
+  // The owner's admin login sees them all lit for testing.
   tiles.push(
     {
       key: 'ember-helm',
       name: 'EMBER HELM',
       condition: 'S×7',
-      unlocked: streaks.sRankBest >= 7 || hasUnlock('helm', 'EMBER HELM'),
+      unlocked: isAdmin || streaks.sRankBest >= 7 || hasUnlock('helm', 'EMBER HELM'),
     },
     {
       key: 'champion-cape',
       name: 'CHAMPION CAPE',
       condition: 'PR ✓',
-      unlocked: prs.length > 0 || hasUnlock('cape', 'CHAMPION CAPE'),
+      unlocked: isAdmin || prs.length > 0 || hasUnlock('cape', 'CHAMPION CAPE'),
     },
     {
       key: 'war-crest',
       name: 'WAR CREST',
       condition: 'CREST ×3',
-      unlocked: hasUnlock('crest'),
+      unlocked: isAdmin || hasUnlock('crest'),
     },
   );
 
