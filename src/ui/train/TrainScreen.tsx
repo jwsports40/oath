@@ -178,6 +178,39 @@ export default function TrainScreen() {
         </Panel>
       )}
 
+      {/* Last time you ran today's workout */}
+      {todayDay !== null && (() => {
+        const last = sessions
+          .filter((s) => s.workoutDayId === todayDay.id && s.finishedAt !== undefined)
+          .sort((a, b) => (a.date < b.date ? 1 : -1))[0];
+        if (last === undefined || last.sets.length === 0) return null;
+        return (
+          <>
+            <SectionLabel>Last Time · {last.date}</SectionLabel>
+            <Panel>
+              {todayDay.exercises.map((p) => {
+                const name = exercises.find((e) => e.id === p.exerciseId)?.name ?? '?';
+                const sets = last.sets
+                  .filter((x) => x.exerciseId === p.exerciseId)
+                  .sort((a, b) => a.setIndex - b.setIndex);
+                if (sets.length === 0) return null;
+                return (
+                  <div key={p.exerciseId} style={{ fontSize: 18, color: 'var(--text-mid)', padding: '2px 0' }}>
+                    {name.toUpperCase()}
+                    <span style={{ color: 'var(--text-low)', marginLeft: 8 }}>
+                      {sets.map((x) => `${x.weight}×${x.reps}`).join(' · ')}
+                    </span>
+                  </div>
+                );
+              })}
+              {last.notes !== undefined && last.notes !== '' && (
+                <div style={{ fontSize: 16, color: 'var(--text-faint)', marginTop: 4 }}>“{last.notes}”</div>
+              )}
+            </Panel>
+          </>
+        );
+      })()}
+
       {/* Program week strip */}
       {weekPlan.length > 0 && (
         <>

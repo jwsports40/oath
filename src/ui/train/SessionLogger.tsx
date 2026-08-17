@@ -72,12 +72,32 @@ export default function SessionLogger({
 
   const session = sessions.find((s) => s.id === sessionId);
 
-  // Per-set editable state, prefilled from the plan.
+  // Last time you did each exercise: most recent finished session's sets.
+  const lastFor = (exerciseId: string): { date: string; sets: ExerciseSet[] } | null => {
+    const done = sessions
+      .filter((s) => s.id !== sessionId && s.finishedAt !== undefined)
+      .sort((a, b) => (a.date < b.date ? 1 : -1));
+    for (const s of done) {
+      const sets = s.sets
+        .filter((x) => x.exerciseId === exerciseId)
+        .sort((a, b) => a.setIndex - b.setIndex);
+      if (sets.length > 0) return { date: s.date, sets };
+    }
+    return null;
+  };
+
+  // Per-set editable state, prefilled from LAST TIME (falling back to the plan).
   const [rows, setRows] = useState<Record<string, RowState>>(() => {
     const init: Record<string, RowState> = {};
     for (const p of day.exercises) {
+      const last = lastFor(p.exerciseId);
       for (let i = 0; i < p.sets; i++) {
-        init[`${p.exerciseId}:${i}`] = { weight: p.weight ?? 0, reps: p.reps, rpe: null };
+        const prev = last?.sets[Math.min(i, last.sets.length - 1)];
+        init[`${p.exerciseId}:${i}`] = {
+          weight: prev?.weight ?? p.weight ?? 0,
+          reps: prev?.reps ?? p.reps,
+          rpe: null,
+        };
       }
     }
     return init;
@@ -166,6 +186,7 @@ export default function SessionLogger({
 
         {day.exercises.map((p) => {
           const name = exercises.find((e) => e.id === p.exerciseId)?.name ?? '?';
+          const last = lastFor(p.exerciseId);
           return (
             <div key={p.exerciseId} style={{ marginTop: 12 }}>
               <div
@@ -177,6 +198,11 @@ export default function SessionLogger({
                   {p.sets}×{p.reps}{p.weight !== undefined ? `·${p.weight}` : ''}
                 </span>
               </div>
+              {last !== null && (
+                <div style={{ fontSize: 16, color: 'var(--text-low)' }}>
+                  LAST ({last.date.slice(5)}): {last.sets.map((x) => `${x.weight}×${x.reps}`).join(' · ')}
+                </div>
+              )}
               {Array.from({ length: p.sets }, (_, i) => {
                 const key = `${p.exerciseId}:${i}`;
                 const row = rows[key] ?? { weight: p.weight ?? 0, reps: p.reps, rpe: null };
