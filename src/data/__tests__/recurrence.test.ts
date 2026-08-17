@@ -1,3 +1,4 @@
+import 'fake-indexeddb/auto';
 import { describe, it, expect } from 'vitest';
 import type { Recurrence } from '../../core/types';
 import { isScheduled, scheduledDatesInRange, scheduleLabel } from '../recurrence';
@@ -100,5 +101,28 @@ describe('scheduleLabel', () => {
   it('daysOfWeek label sorts and names all days', () => {
     expect(scheduleLabel({ type: 'daysOfWeek', days: [7, 6] })).toBe('SAT·SUN');
     expect(scheduleLabel({ type: 'daysOfWeek', days: [2, 4] })).toBe('TUE·THU');
+  });
+});
+
+describe('unscheduled instances are pruned, not graded', () => {
+  it('editing a quest off a day removes its untouched instance on re-materialize', async () => {
+    const { db } = await import('../db');
+    const { seedIfEmpty } = await import('../seed');
+    const { ensureDay } = await import('../lifecycle');
+    const { dayKey } = await import('../../core/dates');
+    await db.delete();
+    await db.open();
+    await seedIfEmpty();
+    const today = dayKey(new Date());
+    await ensureDay(today);
+    const routine = (await db.templates.toArray()).find((t) => t.name === 'MORNING ROUTINE')!;
+    const inst = await db.instances.where('[templateId+date]').equals([routine.id, today]).first();
+    expect(inst).toBeDefined();
+    // Template edited to never occur on today's weekday.
+    const wd = ((new Date(`${today}T12:00:00`).getDay() + 6) % 7) + 1; // ISO 1..7
+    await db.templates.put({ ...routine, recurrence: { type: 'daysOfWeek', days: [wd === 1 ? 2 : 1] } });
+    await ensureDay(today);
+    const after = await db.instances.where('[templateId+date]').equals([routine.id, today]).first();
+    expect(after).toBeUndefined();
   });
 });

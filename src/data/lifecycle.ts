@@ -94,6 +94,19 @@ function effectiveOptional(t: QuestTemplate): boolean {
 /** Create today's instances for every scheduled, non-archived template (idempotent). */
 async function materializeDay(d: string): Promise<void> {
   const templates = await db.templates.toArray();
+  // Prune: an untouched instance whose template no longer schedules this day
+  // (or was archived) vanishes — it neither shows nor tallies in grading.
+  // Anything acted on (progress/done) or already sealed stays as history.
+  const sealed = (await db.dailyScores.get(d))?.sealed === true;
+  if (!sealed) {
+    for (const inst of await db.instances.where('date').equals(d).toArray()) {
+      if (inst.status !== 'todo' || inst.progress !== 0) continue;
+      const t = templates.find((x) => x.id === inst.templateId);
+      if (t === undefined || t.archivedAt !== undefined || !isScheduled(t.recurrence, d)) {
+        await db.instances.delete(inst.id);
+      }
+    }
+  }
   for (const t of templates) {
     if (t.archivedAt !== undefined) continue;
     if (dayKey(new Date(t.createdAt)) > d) continue; // never backfill before the template existed
