@@ -13,6 +13,9 @@ export default defineConfig({
         // Include the knight card art so the installed app is fully offline.
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         maximumFileSizeToCacheInBytes: 5_000_000,
+        // New versions take over immediately (paired with registerSW reload).
+        skipWaiting: true,
+        clientsClaim: true,
       },
       manifest: {
         name: 'Oath',

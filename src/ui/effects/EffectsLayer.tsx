@@ -12,6 +12,7 @@ import {
 import XpFloat from './XpFloat';
 import LevelUpOverlay from './LevelUpOverlay';
 import DaySeal from './DaySeal';
+import { emblemUrl } from '../loot/emblems';
 
 // Display duration for transient (non-overlay) effects, ms. pr is held longer
 // so SessionLogger's non-destructive read of the queue can surface its banner.
@@ -63,8 +64,8 @@ const TIER_COLOR: Record<string, string> = {
 };
 
 /** Full-screen chest-opening reveal: chest name, then the item card. */
-function LootReveal({ name, tier, desc, chest, onDismiss }: {
-  name: string; tier: string; desc: string; chest: string; onDismiss: () => void;
+function LootReveal({ name, tier, desc, chest, itemKey, onDismiss }: {
+  name: string; tier: string; desc: string; chest: string; itemKey: string; onDismiss: () => void;
 }) {
   return (
     <div
@@ -85,6 +86,11 @@ function LootReveal({ name, tier, desc, chest, onDismiss }: {
           textAlign: 'center', boxShadow: '0 0 24px rgba(201,162,60,0.25)',
         }}
       >
+        <img
+          src={emblemUrl(itemKey, tier as never)}
+          alt=""
+          style={{ width: 120, imageRendering: 'pixelated', display: 'block', margin: '0 auto 10px' }}
+        />
         <div style={{ fontFamily: 'var(--font-label)', fontSize: 7, letterSpacing: '0.25em', color: TIER_COLOR[tier] ?? 'var(--text-mid)', marginBottom: 8 }}>
           {tier.toUpperCase()}
         </div>
@@ -132,7 +138,7 @@ export function EffectsView({
       );
     case 'loot':
       return (
-        <LootReveal name={head.name} tier={head.tier} desc={head.desc} chest={head.chest} onDismiss={onPop} />
+        <LootReveal name={head.name} tier={head.tier} desc={head.desc} chest={head.chest} itemKey={head.itemKey} onDismiss={onPop} />
       );
     case 'daySeal':
       return fx === 'full' ? (

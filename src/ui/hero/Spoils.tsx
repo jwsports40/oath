@@ -1,11 +1,14 @@
 // SPOILS — chests earned from bosses and streaks, the loot inventory, and the
 // knight's three attachment slots (one token, one enchantment, one totem).
+import { useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useOath } from '../../app/store';
 import { CHEST_NAMES, lootDesc } from '../../game/loot';
 import type { Equipped, LootGenre, LootItem } from '../../core/types';
 import { Panel, SectionLabel } from '../atoms';
 import chestPng from '../loot/chest.png';
+import { emblemUrl } from '../loot/emblems';
+import Codex from './Codex';
 
 const bodyText: CSSProperties = { fontFamily: 'var(--font-body)', fontSize: 18 };
 const TIER_COLOR: Record<string, string> = {
@@ -19,6 +22,7 @@ const GENRE_LABEL: Record<LootGenre, string> = {
 };
 
 export default function Spoils() {
+  const [codexOpen, setCodexOpen] = useState(false);
   const chests = useOath((s) => s.chests);
   const loot = useOath((s) => s.loot);
   const equipped = useOath((s) => s.equipped);
@@ -33,6 +37,11 @@ export default function Spoils() {
     const isOn = equippedIds.has(item.id);
     return (
       <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', borderBottom: '1px solid var(--hairline)' }}>
+        <img
+          src={emblemUrl(item.itemKey, item.tier)}
+          alt=""
+          style={{ width: 40, height: 40, imageRendering: 'pixelated', objectFit: 'contain' }}
+        />
         <div style={{ flex: 1 }}>
           <div style={{ ...bodyText, color: TIER_COLOR[item.tier] }}>
             {item.name}
@@ -59,7 +68,21 @@ export default function Spoils() {
 
   return (
     <section>
-      <SectionLabel>SPOILS</SectionLabel>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <SectionLabel>SPOILS</SectionLabel>
+        <button
+          aria-label="open codex"
+          onClick={() => setCodexOpen(true)}
+          style={{
+            fontFamily: 'var(--font-label)', fontSize: 7, letterSpacing: '0.15em',
+            color: 'var(--gild)', background: 'none', border: '1px solid var(--border)',
+            padding: '4px 8px', cursor: 'pointer',
+          }}
+        >
+          ⓘ INFO
+        </button>
+      </div>
+      {codexOpen && <Codex onClose={() => setCodexOpen(false)} />}
       {unopened.length > 0 && (
         <Panel amber>
           {unopened.map((c) => (

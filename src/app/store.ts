@@ -38,7 +38,7 @@ export type EffectEvent =
   | { kind: 'daySeal'; date: string; score: number; rank: Rank; xp: number; streak: number }
   | { kind: 'pr'; label: string; xp: number }
   | { kind: 'siegeKill'; name: string }
-  | { kind: 'loot'; name: string; tier: LootTier; desc: string; chest: string };
+  | { kind: 'loot'; name: string; tier: LootTier; desc: string; chest: string; itemKey: string };
 
 export interface OathStore {
   ready: boolean; initError: string | null; today: string; tab: Tab;
@@ -546,7 +546,7 @@ export const useOath = create<OathStore>()((set, get) => {
       await db.loot.add(item);
       await db.chests.put({ ...chest, openedAt: item.obtainedAt });
       pushEffects([{
-        kind: 'loot', name: item.name, tier: item.tier,
+        kind: 'loot', name: item.name, tier: item.tier, itemKey: item.itemKey,
         desc: lootDesc(item), chest: CHEST_NAMES[chest.kind],
       }]);
       await get().refresh();
